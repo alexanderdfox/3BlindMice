@@ -1,93 +1,191 @@
 # 3 Blind Mice - Multi-Mouse Triangulation
 
-A macOS application that fuses input from multiple mice to control a single cursor, implementing a triangulation-based approach to multi-mouse control.
+A sophisticated macOS application that enables multiple mice to control a single cursor through intelligent triangulation algorithms.
 
-## Features
+## 🎯 Features
 
-- **Multi-Mouse Support**: Detects and processes input from multiple connected mice
-- **Triangulation Algorithm**: Fuses mouse movements using averaging to create a unified cursor control
-- **System Tray Interface**: Runs in the menu bar with a beautiful SwiftUI control panel
-- **Start/Stop Control**: Easily enable or disable the triangulation feature
-- **Real-time Status**: Monitor connected mice and cursor position
+- **Multi-Mouse Support**: Connect and use multiple mice simultaneously
+- **Enhanced Triangulation**: Weighted averaging, activity tracking, and smoothing
+- **System Tray Integration**: Clean menu bar interface with mouse emoji icon
+- **Real-time UI**: Live display of connected mice and cursor position
+- **Permission Handling**: User-friendly guidance for HID permissions
+- **Dual Interface**: Both command-line and graphical versions available
 
-## Versions
+## 📁 Project Structure
 
-### Command Line Version
-- File: `3blindmice.swift`
-- Run with: `swift 3blindmice.swift`
-- Simple command-line interface
-
-### Graphical System Tray Version
-- File: `3BlindMiceApp.swift`
-- Modern SwiftUI interface
-- Runs in the menu bar (system tray)
-- Interactive control panel
-
-## Installation & Usage
-
-### Quick Start (Graphical Version)
-```bash
-# Make build script executable (if not already)
-chmod +x build.sh
-
-# Build and run
-./build.sh
+```
+3BlindMice/
+├── src/
+│   ├── cli/                    # Command-line interface
+│   │   ├── 3blindmice.swift   # Main CLI version
+│   │   └── 3blindmice_with_permissions.swift
+│   └── gui/                    # Graphical interface (Xcode project)
+│       └── ThreeBlindMice/     # SwiftUI application
+├── scripts/                    # Build and utility scripts
+│   ├── build_and_run.sh       # Build and launch GUI version
+│   ├── run_release.sh         # Launch existing release build
+│   ├── test_permissions.sh    # Check app permissions
+│   ├── fix_permissions.sh     # Guide through permission setup
+│   ├── generate_icon.sh       # Generate app icons
+│   ├── install_icons.sh       # Install icons to Xcode project
+│   └── build.sh               # Build CLI version
+├── docs/                      # Documentation
+│   ├── USAGE.md              # Use cases and scenarios
+│   ├── TRIANGULATION_ENHANCEMENTS.md
+│   ├── HID_PERMISSIONS_GUIDE.md
+│   └── XCODE_README.md
+├── assets/
+│   └── icons/                 # App icons
+├── ThreeBlindMice.xcodeproj/  # Xcode project
+├── ThreeBlindMice.xcworkspace/
+├── Package.swift              # Swift Package Manager
+└── README.md                  # This file
 ```
 
-### Manual Build
-```bash
-# Build the application
-swift build -c release
+## 🚀 Quick Start
 
-# Run the application
-.build/release/ThreeBlindMice
-```
+### GUI Version (Recommended)
 
-### Command Line Version
-```bash
-# Run the original command-line version
-swift 3blindmice.swift
-```
+1. **Build and Run**:
+   ```bash
+   ./scripts/build_and_run.sh
+   ```
 
-## How It Works
+2. **Or Launch Existing Build**:
+   ```bash
+   ./scripts/run_release.sh
+   ```
 
-1. **Device Detection**: The application scans for all connected HID mouse devices
-2. **Input Processing**: Captures movement deltas from each mouse
-3. **Triangulation**: Averages the movement vectors from all mice
-4. **Cursor Control**: Applies the fused movement to the system cursor
+3. **Look for the 🐭 icon** in your menu bar and click it to control the application.
 
-## System Requirements
+### CLI Version
+
+1. **Build and Run**:
+   ```bash
+   ./scripts/build.sh
+   ```
+
+## 🔧 Installation
+
+### Prerequisites
 
 - macOS 13.0 or later
+- Xcode 15.0 or later (for GUI version)
 - Swift 5.9 or later
-- Multiple USB mice (or trackpads) connected
 
-## Usage Instructions
+### Setup
 
-1. **Connect Multiple Mice**: Plug in 2 or more USB mice to your Mac
-2. **Launch Application**: Run the build script or compiled application
-3. **Access Control Panel**: Click the mouse icon in your menu bar
-4. **Start Triangulation**: Click "Start Triangulation" in the control panel
-5. **Control Cursor**: Move any of the connected mice to control the unified cursor
-6. **Stop When Done**: Click "Stop Triangulation" or "Quit" to exit
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd 3BlindMice
+   ```
 
-## Technical Details
+2. **Grant HID Permissions** (required for both versions):
+   ```bash
+   ./scripts/fix_permissions.sh
+   ```
 
-- Uses IOKit HID framework for device detection
-- Implements CoreGraphics for cursor positioning
-- SwiftUI for the modern user interface
-- Runs as a background application (LSUIElement)
+3. **Build and run**:
+   ```bash
+   ./scripts/build_and_run.sh
+   ```
 
-## Troubleshooting
+## 🎮 Usage
 
-- **No mice detected**: Ensure mice are properly connected via USB
-- **Permission issues**: Grant accessibility permissions if prompted
-- **Cursor not moving**: Check that triangulation is active in the control panel
+### GUI Version
 
-## License
+1. **Launch**: Run the application and look for the 🐭 icon in your menu bar
+2. **Control**: Click the menu bar icon to open the control panel
+3. **Start**: Click "Start Triangulation" to begin multi-mouse control
+4. **Monitor**: Watch the real-time display of connected mice and cursor position
+5. **Stop**: Click "Stop Triangulation" to pause multi-mouse control
 
-See LICENSE file for details.
+### CLI Version
 
-## Contributing
+1. **Run**: Execute the Swift file directly
+2. **Connect Mice**: Plug in multiple mice
+3. **Use**: Move any mouse to control the cursor
+4. **Exit**: Press Ctrl+C to stop
 
-Feel free to submit issues and enhancement requests!
+## 🔒 Permissions
+
+The application requires **Input Monitoring** permissions to access HID devices:
+
+1. **System Preferences** → **Security & Privacy** → **Privacy**
+2. **Input Monitoring** → Add **ThreeBlindMice.app**
+3. **Restart** the application
+
+For detailed troubleshooting, see `docs/HID_PERMISSIONS_GUIDE.md`.
+
+## 🎯 Use Cases
+
+- **Collaborative Design**: Multiple designers working on shared content
+- **Gaming**: Multi-player control of shared game elements
+- **Accessibility**: Caregivers assisting users with limited mobility
+- **Education**: Multiple students interacting with shared content
+- **Precision Work**: Multiple input devices for specialized tasks
+
+For detailed use cases, see `docs/USAGE.md`.
+
+## 🔬 Technical Details
+
+### Enhanced Triangulation Algorithm
+
+- **Weighted Averaging**: Active mice have more influence
+- **Activity Tracking**: Monitors mouse usage patterns
+- **Position Smoothing**: 60 FPS smoothing eliminates jitter
+- **Boundary Clamping**: Ensures cursor stays within screen bounds
+
+For technical details, see `docs/TRIANGULATION_ENHANCEMENTS.md`.
+
+### Architecture
+
+- **GUI**: SwiftUI + AppKit for menu bar integration
+- **CLI**: Pure Swift with IOKit for HID access
+- **Core Logic**: Shared triangulation algorithms
+- **Permissions**: TCC-compliant HID access
+
+## 🛠️ Development
+
+### Building from Source
+
+1. **GUI Version**:
+   ```bash
+   xcodebuild -project ThreeBlindMice.xcodeproj -scheme ThreeBlindMice -configuration Release build
+   ```
+
+2. **CLI Version**:
+   ```bash
+   swift src/cli/3blindmice.swift
+   ```
+
+### Project Structure
+
+- **Xcode Project**: `ThreeBlindMice.xcodeproj/`
+- **Swift Package**: `Package.swift`
+- **Source Code**: `src/` directory
+- **Documentation**: `docs/` directory
+
+## 📄 License
+
+This project is licensed under the MIT License - see the `LICENSE` file for details.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📞 Support
+
+For issues and questions:
+1. Check the documentation in `docs/`
+2. Review permission setup in `docs/HID_PERMISSIONS_GUIDE.md`
+3. Test with `scripts/test_permissions.sh`
+
+---
+
+**3 Blind Mice** - Making multi-mouse control intuitive and powerful! 🐭🐭🐭

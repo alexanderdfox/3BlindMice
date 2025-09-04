@@ -131,7 +131,7 @@ struct ControlPanelView: View {
                 }
                 
                 HStack {
-                    Image(systemName: "mouse")
+                    Image(systemName: "cursorarrow")
                         .foregroundColor(.blue)
                     Text("\(connectedMice) mice connected")
                         .fontWeight(.medium)

@@ -1,6 +1,0 @@
-version: "Apple Swift version 6.1.2 (swiftlang-6.1.2.1.2 clang-1700.0.13.5)"
-options: "c7f3fffd3ac5369e59cfc2a98f8133b8ea55a2c696bd88e75dfa7f896330696e"
-build_start_time: [1757001507, 28143000]
-build_end_time: [1757001508, 112113000]
-inputs:
-  "/Users/alexanderfox/Projects/3BlindMice/3BlindMiceApp.swift": [1757001463, 363463174]
