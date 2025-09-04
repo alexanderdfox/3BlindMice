@@ -13,6 +13,11 @@ class MultiMouseManager {
 	private var smoothingFactor: Double = 0.7
 
 	init() {
+		print("🐭 Enhanced Multi-Mouse Triangulation System")
+		print("=============================================")
+		print("Features: Weighted averaging, activity tracking, smoothing")
+		print("")
+		
 		hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
 
 		let matchingDict: [String: Any] = [
@@ -32,8 +37,32 @@ class MultiMouseManager {
 
 		let result = IOHIDManagerOpen(hidManager, IOOptionBits(kIOHIDOptionsTypeNone))
 		if result != kIOReturnSuccess {
-			print("Failed to open HID Manager")
+			print("❌ Failed to open HID Manager")
+			print("")
+			print("🔒 Permission Issue Detected!")
+			print("=============================")
+			print("This is a macOS security feature. You need to grant Input Monitoring permissions.")
+			print("")
+			print("📋 How to fix:")
+			print("1. Open System Preferences → Security & Privacy → Privacy")
+			print("2. Select 'Input Monitoring' from the left sidebar")
+			print("3. Click the lock icon and enter your password")
+			print("4. Click the '+' button and add Terminal.app (or your terminal app)")
+			print("5. Check the box next to Terminal.app")
+			print("6. Restart this application")
+			print("")
+			print("🚀 Quick fix commands:")
+			print("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_InputMonitoring'")
+			print("")
+			print("💡 Alternative: Use the Xcode version which has better permission handling")
+			print("   Run: open ThreeBlindMice.xcworkspace")
+			print("")
+			return
 		}
+		
+		print("✅ HID Manager opened successfully")
+		print("🎯 Ready to detect mouse movements")
+		print("")
 	}
 
 	func handleInput(value: IOHIDValue) {
@@ -117,7 +146,7 @@ class MultiMouseManager {
 			let smoothing = min(1.0, timeDelta * 60.0) // 60 FPS smoothing
 
 			let newX = fusedPosition.x + CGFloat(avgX)
-			let newY = fusedPosition.y + CGFloat(avgY) // Normal Y axis
+			let newY = fusedPosition.y - CGFloat(avgY) // Invert Y axis
 
 			// Apply smoothing
 			fusedPosition.x = fusedPosition.x * (1.0 - smoothing) + newX * smoothing
@@ -141,8 +170,11 @@ class MultiMouseManager {
 	}
 
 	func run() {
-		print("Enhanced multi-mouse triangulation active.")
-		print("Features: Weighted averaging, activity tracking, smoothing")
+		print("🚀 Enhanced multi-mouse triangulation active!")
+		print("📊 Connected mice: \(mouseDeltas.count)")
+		print("🎮 Move your mice to see triangulation in action")
+		print("⏹️  Press Ctrl+C to stop")
+		print("")
 		CFRunLoopRun()
 	}
 }

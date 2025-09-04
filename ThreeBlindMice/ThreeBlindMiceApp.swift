@@ -17,7 +17,7 @@ struct ThreeBlindMiceApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
-    private var multiMouseManager: MultiMouseManager!
+    var multiMouseManager: MultiMouseManager!
     @Published var isActive = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -202,19 +202,22 @@ struct ControlPanelView: View {
     }
     
     private func updateUI() {
-        // Update connected mice count and cursor position
-        // This would be connected to the actual MultiMouseManager
-        connectedMice = 2 // Placeholder
-        cursorPosition = CGPoint(x: 500, y: 500) // Placeholder
+        // Update connected mice count and cursor position from MultiMouseManager
+        connectedMice = appDelegate.multiMouseManager?.connectedMiceCount ?? 0
+        cursorPosition = appDelegate.multiMouseManager?.currentPosition ?? CGPoint(x: 500, y: 500)
     }
 }
 
-// Updated MultiMouseManager with start/stop functionality
+// Enhanced MultiMouseManager with improved triangulation
 class MultiMouseManager: ObservableObject {
     private var hidManager: IOHIDManager!
     private var mouseDeltas: [IOHIDDevice: (x: Int, y: Int)] = [:]
+    private var mouseWeights: [IOHIDDevice: Double] = [:]
+    private var mouseActivity: [IOHIDDevice: Date] = [:]
     private var fusedPosition = CGPoint(x: 500, y: 500)
     private var isRunning = false
+    private var lastUpdateTime = Date()
+    private var smoothingFactor: Double = 0.7 // Smoothing factor for position updates
     
     init() {
         setupHIDManager()
@@ -240,18 +243,62 @@ class MultiMouseManager: ObservableObject {
         
         let result = IOHIDManagerOpen(hidManager, IOOptionBits(kIOHIDOptionsTypeNone))
         if result != kIOReturnSuccess {
-            print("Failed to open HID Manager")
+            print("❌ Failed to open HID Manager")
+            print("🔒 Permission Issue Detected!")
+            print("=============================")
+            print("This is a macOS security feature. You need to grant Input Monitoring permissions.")
+            print("")
+            print("📋 How to fix:")
+            print("1. Open System Preferences → Security & Privacy → Privacy")
+            print("2. Select 'Input Monitoring' from the left sidebar")
+            print("3. Click the lock icon and enter your password")
+            print("4. Click the '+' button and add ThreeBlindMice.app")
+            print("5. Check the box next to ThreeBlindMice.app")
+            print("6. Restart the application")
+            print("")
+            print("🚀 Quick fix:")
+            print("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_InputMonitoring'")
+            print("")
+            
+            // Show a user-friendly alert
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.messageText = "Permission Required"
+                alert.informativeText = "ThreeBlindMice needs Input Monitoring permission to access mouse devices.\n\nPlease grant permission in System Preferences and restart the app."
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Open System Preferences")
+                alert.addButton(withTitle: "OK")
+                
+                let response = alert.runModal()
+                if response == .alertFirstButtonReturn {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_InputMonitoring")!)
+                }
+            }
+        } else {
+            print("✅ HID Manager opened successfully")
+            print("🎯 Ready to detect mouse movements")
         }
     }
     
     func start() {
         isRunning = true
-        print("Multi-mouse triangulation started")
+        print("Enhanced multi-mouse triangulation started")
+        print("Features: Weighted averaging, activity tracking, smoothing")
     }
     
     func stop() {
         isRunning = false
         print("Multi-mouse triangulation stopped")
+    }
+    
+    // Get connected mice count for UI
+    var connectedMiceCount: Int {
+        return mouseDeltas.count
+    }
+    
+    // Get current fused position for UI
+    var currentPosition: CGPoint {
+        return fusedPosition
     }
     
     func handleInput(value: IOHIDValue) {
@@ -265,6 +312,15 @@ class MultiMouseManager: ObservableObject {
             if usage == 0x30 || usage == 0x31 {
                 let intValue = IOHIDValueGetIntegerValue(value)
                 let device = IOHIDElementGetDevice(element)
+                let currentTime = Date()
+                
+                // Update mouse activity timestamp
+                mouseActivity[device] = currentTime
+                
+                // Initialize mouse weight if not set
+                if mouseWeights[device] == nil {
+                    mouseWeights[device] = 1.0
+                }
                 
                 var delta = mouseDeltas[device] ?? (0, 0)
                 if usage == 0x30 {
@@ -274,7 +330,27 @@ class MultiMouseManager: ObservableObject {
                 }
                 mouseDeltas[device] = delta
                 
+                // Update mouse weights based on activity
+                updateMouseWeights()
+                
                 fuseAndMoveCursor()
+            }
+        }
+    }
+    
+    private func updateMouseWeights() {
+        let currentTime = Date()
+        let activityTimeout: TimeInterval = 2.0 // 2 seconds timeout
+        
+        for (device, lastActivity) in mouseActivity {
+            let timeSinceActivity = currentTime.timeIntervalSince(lastActivity)
+            
+            // Reduce weight for inactive mice
+            if timeSinceActivity > activityTimeout {
+                mouseWeights[device] = max(0.1, (mouseWeights[device] ?? 1.0) * 0.9)
+            } else {
+                // Increase weight for active mice
+                mouseWeights[device] = min(2.0, (mouseWeights[device] ?? 1.0) * 1.1)
             }
         }
     }
@@ -283,25 +359,61 @@ class MultiMouseManager: ObservableObject {
         let count = mouseDeltas.count
         guard count > 0 else { return }
         
-        let totalX = mouseDeltas.values.reduce(0) { $0 + $1.x }
-        let totalY = mouseDeltas.values.reduce(0) { $0 + $1.y }
+        let currentTime = Date()
         
-        let avgX = Double(totalX) / Double(count)
-        let avgY = Double(totalY) / Double(count)
+        // Calculate weighted average of mouse movements
+        var weightedTotalX: Double = 0
+        var weightedTotalY: Double = 0
+        var totalWeight: Double = 0
+        
+        for (device, delta) in mouseDeltas {
+            let weight = mouseWeights[device] ?? 1.0
+            weightedTotalX += Double(delta.x) * weight
+            weightedTotalY += Double(delta.y) * weight
+            totalWeight += weight
+        }
+        
+        guard totalWeight > 0 else { return }
+        
+        let avgX = weightedTotalX / totalWeight
+        let avgY = weightedTotalY / totalWeight
         
         if let screenFrame = NSScreen.main?.frame {
-            fusedPosition.x += CGFloat(avgX)
-            fusedPosition.y -= CGFloat(avgY)
+            // Apply smoothing to position updates
+            let timeDelta = currentTime.timeIntervalSince(lastUpdateTime)
+            let smoothing = min(1.0, timeDelta * 60.0) // 60 FPS smoothing
             
+            			let newX = fusedPosition.x + CGFloat(avgX)
+			let newY = fusedPosition.y + CGFloat(avgY) // Normal Y axis
+            
+            // Apply smoothing
+            fusedPosition.x = fusedPosition.x * (1.0 - smoothing) + newX * smoothing
+            fusedPosition.y = fusedPosition.y * (1.0 - smoothing) + newY * smoothing
+            
+            // Clamp to screen bounds
             fusedPosition.x = max(0, min(fusedPosition.x, screenFrame.width - 1))
             fusedPosition.y = max(0, min(fusedPosition.y, screenFrame.height - 1))
             
+            // Clear deltas after processing
             for key in mouseDeltas.keys {
                 mouseDeltas[key] = (0, 0)
             }
             
+            // Move cursor to fused position
             CGWarpMouseCursorPosition(fusedPosition)
             CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+            
+            lastUpdateTime = currentTime
+        }
+    }
+    
+    // Get detailed mouse information for debugging
+    func getMouseInfo() -> [(device: String, weight: Double, activity: Date?)] {
+        return mouseDeltas.map { (device, _) in
+            let deviceName = String(describing: device)
+            let weight = mouseWeights[device] ?? 1.0
+            let activity = mouseActivity[device]
+            return (device: deviceName, weight: weight, activity: activity)
         }
     }
 }
