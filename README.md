@@ -1,101 +1,93 @@
-# 🐭 3BlindMice – Multi-Mouse Triangulation Tool for macOS
+# 3 Blind Mice - Multi-Mouse Triangulation
 
-This project lets you use **multiple USB optical mice** to triangulate and control the macOS cursor in real time by averaging input deltas.
+A macOS application that fuses input from multiple mice to control a single cursor, implementing a triangulation-based approach to multi-mouse control.
 
----
+## Features
 
-## 🧰 Compiling 3BlindMice
+- **Multi-Mouse Support**: Detects and processes input from multiple connected mice
+- **Triangulation Algorithm**: Fuses mouse movements using averaging to create a unified cursor control
+- **System Tray Interface**: Runs in the menu bar with a beautiful SwiftUI control panel
+- **Start/Stop Control**: Easily enable or disable the triangulation feature
+- **Real-time Status**: Monitor connected mice and cursor position
 
-This guide shows how to build the 3BlindMice multi-mouse triangulation tool for macOS using Swift.
+## Versions
 
-### 🖥 Requirements
+### Command Line Version
+- File: `3blindmice.swift`
+- Run with: `swift 3blindmice.swift`
+- Simple command-line interface
 
-- macOS 12 or newer
-- Xcode Command Line Tools (`xcode-select --install`)
-- Accessibility permissions (for cursor control)
+### Graphical System Tray Version
+- File: `3BlindMiceApp.swift`
+- Modern SwiftUI interface
+- Runs in the menu bar (system tray)
+- Interactive control panel
 
-### 📁 Files
+## Installation & Usage
 
-- `3BlindMice.swift` — The core mouse input handler.
-
-### 🔧 Build Instructions
-
-1. Open Terminal and navigate to your project folder.
-2. Compile the project using Swift:
-
-   ```bash
-   swiftc 3BlindMice.swift
-   ```
-
-   This creates an executable file named `3BlindMice`.
-
-3. Grant Accessibility Permissions
-
-   To move the system mouse cursor, 3BlindMice needs access:
-
-   - Go to **System Settings → Privacy & Security → Accessibility**
-   - Click `+`, then add:
-     - Terminal (if running from Terminal)
-     - or the compiled `3BlindMice` binary
-
-   Make sure the checkbox is checked ✅.
-
-✅ You’re ready to run `3BlindMice`. See below for how to use it.
-
----
-
-## 🖱️ Using 3BlindMice
-
-3BlindMice allows you to use multiple USB optical mice on macOS to control the system cursor by averaging their input deltas in real-time.
-
-### 🚀 Running
-
-Open Terminal and run:
-
+### Quick Start (Graphical Version)
 ```bash
-./3BlindMice
+# Make build script executable (if not already)
+chmod +x build.sh
+
+# Build and run
+./build.sh
 ```
 
-You’ll see:
+### Manual Build
+```bash
+# Build the application
+swift build -c release
 
+# Run the application
+.build/release/ThreeBlindMice
 ```
-Multi-mouse triangulation active.
+
+### Command Line Version
+```bash
+# Run the original command-line version
+swift 3blindmice.swift
 ```
 
-This means the app is running and listening for input.
+## How It Works
 
-### 🧠 How It Works
+1. **Device Detection**: The application scans for all connected HID mouse devices
+2. **Input Processing**: Captures movement deltas from each mouse
+3. **Triangulation**: Averages the movement vectors from all mice
+4. **Cursor Control**: Applies the fused movement to the system cursor
 
-- Each mouse contributes its movement (delta X/Y)
-- The app averages input across all mice
-- The fused cursor position is warped accordingly
-- macOS Y-axis is inverted (up is negative)
+## System Requirements
 
-### 📋 Notes
+- macOS 13.0 or later
+- Swift 5.9 or later
+- Multiple USB mice (or trackpads) connected
 
-- Works with **any number of USB mice**
-- All devices must be recognized as HID mice by macOS
-- This app uses `IOHIDManager` and `CGWarpMouseCursorPosition`
+## Usage Instructions
 
-### 🛑 Stopping
+1. **Connect Multiple Mice**: Plug in 2 or more USB mice to your Mac
+2. **Launch Application**: Run the build script or compiled application
+3. **Access Control Panel**: Click the mouse icon in your menu bar
+4. **Start Triangulation**: Click "Start Triangulation" in the control panel
+5. **Control Cursor**: Move any of the connected mice to control the unified cursor
+6. **Stop When Done**: Click "Stop Triangulation" or "Quit" to exit
 
-Use `Ctrl + C` to quit in the terminal.
+## Technical Details
 
-### 🛠️ Troubleshooting
+- Uses IOKit HID framework for device detection
+- Implements CoreGraphics for cursor positioning
+- SwiftUI for the modern user interface
+- Runs as a background application (LSUIElement)
 
-- **Cursor doesn’t move**:
-  - Check Accessibility permissions (see compilation steps)
-  - Ensure mice are connected and recognized
-- **Cursor jumps erratically**:
-  - Make sure all connected devices are optical mice, not trackpads or special devices
+## Troubleshooting
 
-### 🧪 Future Ideas
+- **No mice detected**: Ensure mice are properly connected via USB
+- **Permission issues**: Grant accessibility permissions if prompted
+- **Cursor not moving**: Check that triangulation is active in the control panel
 
-- Weighted averaging (e.g. for tracking devices)
-- GUI overlay for cursor visualization
-- Triangulation logic using position instead of deltas
-- SwiftUI-based calibration interface
+## License
 
----
+See LICENSE file for details.
 
-Happy hacking with your new triple-mouse tracking tool! 🐭🐭🐭
+## Contributing
+
+Feel free to submit issues and enhancement requests!

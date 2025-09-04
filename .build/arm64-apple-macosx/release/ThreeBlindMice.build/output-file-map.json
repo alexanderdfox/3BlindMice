@@ -1,0 +1,12 @@
+{
+  "": {
+    "dependencies": "/Users/alexanderfox/Projects/3BlindMice/.build/arm64-apple-macosx/release/ThreeBlindMice.build/ThreeBlindMice.d",
+    "object": "/Users/alexanderfox/Projects/3BlindMice/.build/arm64-apple-macosx/release/ThreeBlindMice.build/ThreeBlindMice.o",
+    "swift-dependencies": "/Users/alexanderfox/Projects/3BlindMice/.build/arm64-apple-macosx/release/ThreeBlindMice.build/master.swiftdeps"
+  },
+  "/Users/alexanderfox/Projects/3BlindMice/3BlindMiceApp.swift": {
+    "object": "/Users/alexanderfox/Projects/3BlindMice/.build/arm64-apple-macosx/release/ThreeBlindMice.build/3BlindMiceApp.swift.o",
+    "swiftmodule": "/Users/alexanderfox/Projects/3BlindMice/.build/arm64-apple-macosx/release/ThreeBlindMice.build/3BlindMiceApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/alexanderfox/Projects/3BlindMice/.build/arm64-apple-macosx/release/ThreeBlindMice.build/3BlindMiceApp.swiftdeps"
+  }
+}
