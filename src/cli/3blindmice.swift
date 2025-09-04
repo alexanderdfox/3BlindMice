@@ -6,11 +6,14 @@ import CoreGraphics
 class MultiMouseManager {
 	private var hidManager: IOHIDManager!
 	private var mouseDeltas: [IOHIDDevice: (x: Int, y: Int)] = [:]
+	private var mousePositions: [IOHIDDevice: CGPoint] = [:] // Individual mouse positions
 	private var mouseWeights: [IOHIDDevice: Double] = [:]
 	private var mouseActivity: [IOHIDDevice: Date] = [:]
 	private var fusedPosition = CGPoint(x: 500, y: 500)
 	private var lastUpdateTime = Date()
 	private var smoothingFactor: Double = 0.7
+	private var useIndividualMode = false // Toggle between individual and fused modes
+	private var activeMouse: IOHIDDevice? // Currently active mouse in individual mode
 
 	init() {
 		hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
@@ -33,6 +36,23 @@ class MultiMouseManager {
 		let result = IOHIDManagerOpen(hidManager, IOOptionBits(kIOHIDOptionsTypeNone))
 		if result != kIOReturnSuccess {
 			print("Failed to open HID Manager")
+			print("🔒 Permission Issue Detected!")
+			print("=============================")
+			print("This is a macOS security feature. You need to grant Input Monitoring permissions.")
+			print("")
+			print("📋 How to fix:")
+			print("1. Open System Preferences → Security & Privacy → Privacy")
+			print("2. Select 'Input Monitoring' from the left sidebar")
+			print("3. Click the lock icon and enter your password")
+			print("4. Click the '+' button and add ThreeBlindMice.app")
+			print("5. Check the box next to ThreeBlindMice.app")
+			print("6. Restart the application")
+			print("")
+			print("🚀 Quick fix:")
+			print("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_InputMonitoring'")
+		} else {
+			print("✅ HID Manager opened successfully")
+			print("🎯 Ready to detect mouse movements")
 		}
 	}
 
@@ -50,9 +70,12 @@ class MultiMouseManager {
 				// Update mouse activity timestamp
 				mouseActivity[device] = currentTime
 
-				// Initialize mouse weight if not set
+				// Initialize mouse weight and position if not set
 				if mouseWeights[device] == nil {
 					mouseWeights[device] = 1.0
+				}
+				if mousePositions[device] == nil {
+					mousePositions[device] = CGPoint(x: 500, y: 500) // Default starting position
 				}
 
 				var delta = mouseDeltas[device] ?? (0, 0)
@@ -63,12 +86,51 @@ class MultiMouseManager {
 				}
 				mouseDeltas[device] = delta
 
+				// Update individual mouse position
+				updateIndividualMousePosition(device: device, delta: delta)
+
 				// Update mouse weights based on activity
 				updateMouseWeights()
 
-				fuseAndMoveCursor()
+				// Handle cursor movement based on mode
+				if useIndividualMode {
+					handleIndividualMode(device: device)
+				} else {
+					fuseAndMoveCursor()
+				}
 			}
 		}
+	}
+
+	private func updateIndividualMousePosition(device: IOHIDDevice, delta: (x: Int, y: Int)) {
+		guard let currentPos = mousePositions[device] else { return }
+		
+		let newX = currentPos.x + CGFloat(delta.x)
+		let newY = currentPos.y + CGFloat(delta.y)
+		
+		// Clamp to screen bounds
+		if let screenFrame = NSScreen.main?.frame {
+			mousePositions[device] = CGPoint(
+				x: max(0, min(newX, screenFrame.width - 1)),
+				y: max(0, min(newY, screenFrame.height - 1))
+			)
+		} else {
+			mousePositions[device] = CGPoint(x: newX, y: newY)
+		}
+	}
+
+	private func handleIndividualMode(device: IOHIDDevice) {
+		// Set this as the active mouse
+		activeMouse = device
+		
+		// Move cursor to this mouse's position
+		if let position = mousePositions[device] {
+			CGWarpMouseCursorPosition(position)
+			CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+		}
+		
+		// Clear deltas after processing
+		mouseDeltas[device] = (0, 0)
 	}
 
 	private func updateMouseWeights() {
@@ -140,10 +202,91 @@ class MultiMouseManager {
 		}
 	}
 
+	// Public methods for mode switching and information
+	func toggleMode() {
+		useIndividualMode.toggle()
+		print("🔄 Mode switched to: \(useIndividualMode ? "Individual Mouse Control" : "Fused Triangulation")")
+	}
+
+	func getIndividualMousePositions() -> [String: CGPoint] {
+		var positions: [String: CGPoint] = [:]
+		for (device, position) in mousePositions {
+			positions[String(describing: device)] = position
+		}
+		return positions
+	}
+
+	func getActiveMouse() -> String? {
+		guard let activeMouse = activeMouse else { return nil }
+		return String(describing: activeMouse)
+	}
+
+	func getMode() -> String {
+		return useIndividualMode ? "Individual" : "Fused"
+	}
+
 	func run() {
 		print("Enhanced multi-mouse triangulation active.")
 		print("Features: Weighted averaging, activity tracking, smoothing")
+		print("🎮 Individual mouse coordinates tracking enabled")
+		print("")
+		print("📋 Controls:")
+		print("- Press 'M' to toggle between Individual and Fused modes")
+		print("- Press 'I' to show individual mouse positions")
+		print("- Press 'A' to show active mouse")
+		print("- Press 'Ctrl+C' to exit")
+		print("")
+		print("Current mode: \(getMode())")
+		
+		// Set up keyboard monitoring for mode switching
+		DispatchQueue.global(qos: .background).async {
+			self.monitorKeyboard()
+		}
+		
 		CFRunLoopRun()
+	}
+
+	private func monitorKeyboard() {
+		// Simple keyboard monitoring for mode switching
+		// Note: This is a basic implementation. For production, consider using Carbon events
+		while true {
+			if let input = readLine() {
+				switch input.lowercased() {
+				case "m":
+					DispatchQueue.main.async {
+						self.toggleMode()
+					}
+				case "i":
+					DispatchQueue.main.async {
+						self.printIndividualPositions()
+					}
+				case "a":
+					DispatchQueue.main.async {
+						self.printActiveMouse()
+					}
+				default:
+					break
+				}
+			}
+		}
+	}
+
+	private func printIndividualPositions() {
+		print("📊 Individual Mouse Positions:")
+		let positions = getIndividualMousePositions()
+		for (device, position) in positions {
+			print("  🐭 \(device): (\(Int(position.x)), \(Int(position.y)))")
+		}
+		print("")
+	}
+
+	private func printActiveMouse() {
+		if let activeMouse = getActiveMouse() {
+			print("🎯 Active Mouse: \(activeMouse)")
+		} else {
+			print("🎯 No active mouse (using fused mode)")
+		}
+		print("")
 	}
 }
 

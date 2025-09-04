@@ -5,10 +5,14 @@ A sophisticated macOS application that enables multiple mice to control a single
 ## 🎯 Features
 
 - **Multi-Mouse Support**: Connect and use multiple mice simultaneously
+- **Individual Mouse Coordinates**: Track each mouse's position separately
+- **Dual Control Modes**: Switch between fused triangulation and individual mouse control
 - **Enhanced Triangulation**: Weighted averaging, activity tracking, and smoothing
 - **System Tray Integration**: Clean menu bar interface with mouse emoji icon
 - **Real-time UI**: Live display of connected mice and cursor position
 - **Permission Handling**: User-friendly guidance for HID permissions
+- **Custom Emoji Support**: Assign personalized emojis to each mouse for easy identification
+- **Custom Cursor Display**: Each mouse shows its assigned emoji as the actual system cursor
 - **Dual Interface**: Both command-line and graphical versions available
 
 ## 📁 Project Structure
@@ -106,7 +110,9 @@ A sophisticated macOS application that enables multiple mice to control a single
 1. **Run**: Execute the Swift file directly
 2. **Connect Mice**: Plug in multiple mice
 3. **Use**: Move any mouse to control the cursor
-4. **Exit**: Press Ctrl+C to stop
+4. **Mode Switching**: Press 'M' to toggle between Individual and Fused modes
+5. **Debug**: Press 'I' for individual positions, 'A' for active mouse
+6. **Exit**: Press Ctrl+C to stop
 
 ## 🔒 Permissions
 
@@ -136,6 +142,8 @@ For detailed use cases, see `docs/USAGE.md`.
 - **Activity Tracking**: Monitors mouse usage patterns
 - **Position Smoothing**: 60 FPS smoothing eliminates jitter
 - **Boundary Clamping**: Ensures cursor stays within screen bounds
+- **Individual Coordinates**: Each mouse maintains its own position
+- **Dual Modes**: Switch between fused and individual control
 
 For technical details, see `docs/TRIANGULATION_ENHANCEMENTS.md`.
 

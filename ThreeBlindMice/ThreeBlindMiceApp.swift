@@ -3,6 +3,11 @@ import AppKit
 import IOKit.hid
 import CoreGraphics
 
+// MARK: - Notification Extensions
+extension Notification.Name {
+    static let emojiUpdated = Notification.Name("emojiUpdated")
+}
+
 @main
 struct ThreeBlindMiceApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -18,6 +23,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     var multiMouseManager: MultiMouseManager!
+    var emojiManager: EmojiManager!
     @Published var isActive = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -43,6 +49,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         
         // Initialize multi-mouse manager
         multiMouseManager = MultiMouseManager()
+        emojiManager = EmojiManager()
         
         // Start the application
         print("3 Blind Mice - Multi-Mouse Triangulation")
@@ -102,109 +109,559 @@ struct ControlPanelView: View {
     @ObservedObject var appDelegate: AppDelegate
     @State private var connectedMice = 0
     @State private var cursorPosition = CGPoint(x: 500, y: 500)
+    @State private var individualPositions: [String: CGPoint] = [:]
+    @State private var currentMode = "Fused"
+    @State private var activeMouse = "None"
+    @State private var mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint)] = []
+    @State private var showDetailedInfo = false
+    @State private var showEmojiSettings = false
     
     var body: some View {
-        VStack(spacing: 20) {
-            // Header
-            VStack(spacing: 8) {
-                Image(systemName: "mouse.fill")
-                    .font(.system(size: 40))
-                    .foregroundColor(.blue)
+        ScrollView {
+            VStack(spacing: 20) {
+                HeaderView()
+                StatusView(connectedMice: connectedMice, currentMode: currentMode, isActive: appDelegate.isActive)
+                ControlButtonsView(appDelegate: appDelegate, showDetailedInfo: $showDetailedInfo, showEmojiSettings: $showEmojiSettings)
+                CursorPositionView(cursorPosition: cursorPosition)
                 
-                Text("3 Blind Mice")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Text("Multi-Mouse Triangulation")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.top, 20)
-            
-            // Status Section
-            VStack(spacing: 12) {
-                HStack {
-                    Image(systemName: appDelegate.isActive ? "circle.fill" : "circle")
-                        .foregroundColor(appDelegate.isActive ? .green : .red)
-                    Text(appDelegate.isActive ? "Active" : "Inactive")
-                        .fontWeight(.medium)
+                if !individualPositions.isEmpty {
+                    IndividualMousePositionsView(
+                        individualPositions: individualPositions,
+                        activeMouse: activeMouse,
+                        mouseInfo: mouseInfo,
+                        timeAgoString: timeAgoString,
+                        emojiManager: appDelegate.emojiManager
+                    )
                 }
                 
-                HStack {
-                    Image(systemName: "cursorarrow")
-                        .foregroundColor(.blue)
-                    Text("\(connectedMice) mice connected")
-                        .fontWeight(.medium)
-                }
-            }
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(10)
-            
-            // Control Section
-            VStack(spacing: 15) {
-                Button(action: {
-                    appDelegate.toggleMultiMouse()
-                }) {
-                    HStack {
-                        Image(systemName: appDelegate.isActive ? "stop.fill" : "play.fill")
-                        Text(appDelegate.isActive ? "Stop Triangulation" : "Start Triangulation")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(appDelegate.isActive ? Color.red : Color.green)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
+                if showDetailedInfo && !mouseInfo.isEmpty {
+                    DetailedMouseInfoView(
+                        mouseInfo: mouseInfo,
+                        activeMouse: activeMouse,
+                        timeAgoString: timeAgoString,
+                        emojiManager: appDelegate.emojiManager
+                    )
                 }
                 
-                Button(action: {
-                    appDelegate.quitApp()
-                }) {
-                    HStack {
-                        Image(systemName: "xmark.circle.fill")
-                        Text("Quit")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.gray)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
+                if showEmojiSettings {
+                    EmojiSettingsView(emojiManager: appDelegate.emojiManager, connectedDevices: Array(individualPositions.keys))
                 }
-            }
-            
-            // Cursor Position Display
-            VStack(spacing: 8) {
-                Text("Cursor Position")
-                    .font(.headline)
                 
-                HStack {
-                    Text("X: \(Int(cursorPosition.x))")
-                    Spacer()
-                    Text("Y: \(Int(cursorPosition.y))")
-                }
-                .font(.caption)
-                .padding(.horizontal)
+                // Add some bottom padding for better scrolling experience
+                Spacer(minLength: 20)
             }
             .padding()
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(10)
-            
-            Spacer()
         }
-        .padding()
-        .frame(width: 300, height: 400)
+        .frame(width: 350, height: 600)
         .onAppear {
-            // Start timer to update UI
             Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
                 updateUI()
             }
         }
     }
     
+    private func timeAgoString(from date: Date) -> String {
+        let timeInterval = Date().timeIntervalSince(date)
+        if timeInterval < 1 {
+            return "Now"
+        } else if timeInterval < 60 {
+            return "\(Int(timeInterval))s ago"
+        } else if timeInterval < 3600 {
+            return "\(Int(timeInterval / 60))m ago"
+        } else {
+            return "\(Int(timeInterval / 3600))h ago"
+        }
+    }
+    
     private func updateUI() {
-        // Update connected mice count and cursor position from MultiMouseManager
         connectedMice = appDelegate.multiMouseManager?.connectedMiceCount ?? 0
         cursorPosition = appDelegate.multiMouseManager?.currentPosition ?? CGPoint(x: 500, y: 500)
+        individualPositions = appDelegate.multiMouseManager?.getIndividualMousePositions() ?? [:]
+        currentMode = appDelegate.multiMouseManager?.getMode() ?? "Fused"
+        activeMouse = appDelegate.multiMouseManager?.getActiveMouse() ?? "None"
+        mouseInfo = appDelegate.multiMouseManager?.getMouseInfo() ?? []
+    }
+}
+
+// MARK: - Subviews
+struct HeaderView: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "cursorarrow.fill")
+                .font(.system(size: 40))
+                .foregroundColor(.blue)
+            
+            Text("3 Blind Mice")
+                .font(.title2)
+                .fontWeight(.bold)
+            
+            Text("Multi-Mouse Triangulation")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.top, 20)
+    }
+}
+
+struct StatusView: View {
+    let connectedMice: Int
+    let currentMode: String
+    let isActive: Bool
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: isActive ? "circle.fill" : "circle")
+                    .foregroundColor(isActive ? .green : .red)
+                Text(isActive ? "Active" : "Inactive")
+                    .fontWeight(.medium)
+            }
+            
+            HStack {
+                Image(systemName: "cursorarrow")
+                    .foregroundColor(.blue)
+                Text("\(connectedMice) mice connected")
+                    .fontWeight(.medium)
+            }
+            
+            HStack {
+                Image(systemName: "gear")
+                    .foregroundColor(.orange)
+                Text("Mode: \(currentMode)")
+                    .fontWeight(.medium)
+            }
+        }
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(10)
+    }
+}
+
+struct ControlButtonsView: View {
+    @ObservedObject var appDelegate: AppDelegate
+    @Binding var showDetailedInfo: Bool
+    @Binding var showEmojiSettings: Bool
+    
+    var body: some View {
+        VStack(spacing: 15) {
+            Button(action: {
+                appDelegate.toggleMultiMouse()
+            }) {
+                HStack {
+                    Image(systemName: appDelegate.isActive ? "stop.fill" : "play.fill")
+                    Text(appDelegate.isActive ? "Stop Triangulation" : "Start Triangulation")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(appDelegate.isActive ? Color.red : Color.green)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+            
+            Button(action: {
+                appDelegate.multiMouseManager?.toggleMode()
+            }) {
+                HStack {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                    Text("Toggle Mode")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.orange)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+            .disabled(!appDelegate.isActive)
+            
+            Button(action: {
+                showDetailedInfo.toggle()
+            }) {
+                HStack {
+                    Image(systemName: showDetailedInfo ? "eye.slash" : "eye")
+                    Text(showDetailedInfo ? "Hide Details" : "Show Details")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.purple)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+            .disabled(!appDelegate.isActive)
+            
+            Button(action: {
+                showEmojiSettings.toggle()
+            }) {
+                HStack {
+                    Image(systemName: "face.smiling")
+                    Text("Custom Emojis")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.pink)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+            
+            HStack(spacing: 10) {
+                Button(action: {
+                    appDelegate.multiMouseManager?.printIndividualPositions()
+                }) {
+                    HStack {
+                        Image(systemName: "list.bullet")
+                        Text("Print Positions")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                }
+                .disabled(!appDelegate.isActive)
+                
+                Button(action: {
+                    appDelegate.multiMouseManager?.printActiveMouse()
+                }) {
+                    HStack {
+                        Image(systemName: "target")
+                        Text("Print Active")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                }
+                .disabled(!appDelegate.isActive)
+            }
+            
+            Button(action: {
+                appDelegate.multiMouseManager?.printDetailedMouseInfo()
+            }) {
+                HStack {
+                    Image(systemName: "info.circle")
+                    Text("Print All Info")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.indigo)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+            .disabled(!appDelegate.isActive)
+            
+            Button(action: {
+                appDelegate.quitApp()
+            }) {
+                HStack {
+                    Image(systemName: "xmark.circle.fill")
+                    Text("Quit")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.gray)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+        }
+    }
+}
+
+struct CursorPositionView: View {
+    let cursorPosition: CGPoint
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("Cursor Position")
+                .font(.headline)
+            
+            HStack {
+                Text("X: \(Int(cursorPosition.x))")
+                Spacer()
+                Text("Y: \(Int(cursorPosition.y))")
+            }
+            .font(.caption)
+            .padding(.horizontal)
+        }
+        .padding()
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(10)
+    }
+}
+
+struct IndividualMousePositionsView: View {
+    let individualPositions: [String: CGPoint]
+    let activeMouse: String
+    let mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint)]
+    let timeAgoString: (Date) -> String
+    let emojiManager: EmojiManager
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("Individual Mouse Positions")
+                .font(.headline)
+            
+            ScrollView {
+                VStack(spacing: 6) {
+                    ForEach(Array(individualPositions.keys.sorted()), id: \.self) { device in
+                        if let position = individualPositions[device] {
+                            VStack(spacing: 4) {
+                                HStack {
+                                    Text(emojiManager.getEmoji(for: device))
+                                        .font(.title2)
+                                        .foregroundColor(device == activeMouse ? .green : .gray)
+                                    Text(device.prefix(8) + "...")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    Text("(\(Int(position.x)), \(Int(position.y)))")
+                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                }
+                                
+                                if let mouseInfo = mouseInfo.first(where: { $0.device == device }) {
+                                    HStack {
+                                        Text("Weight: \(String(format: "%.2f", mouseInfo.weight))")
+                                            .font(.caption2)
+                                            .foregroundColor(.orange)
+                                        Spacer()
+                                        if let activity = mouseInfo.activity {
+                                            Text("Active: \(timeAgoString(activity))")
+                                                .font(.caption2)
+                                                .foregroundColor(.blue)
+                                        } else {
+                                            Text("Inactive")
+                                                .font(.caption2)
+                                                .foregroundColor(.red)
+                                        }
+                                    }
+                                    .padding(.horizontal, 8)
+                                }
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(device == activeMouse ? Color.green.opacity(0.1) : Color.clear)
+                            .cornerRadius(4)
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 100)
+        }
+        .padding()
+        .background(Color.green.opacity(0.1))
+        .cornerRadius(10)
+    }
+}
+
+struct DetailedMouseInfoView: View {
+    let mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint)]
+    let activeMouse: String
+    let timeAgoString: (Date) -> String
+    let emojiManager: EmojiManager
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("Detailed Mouse Information")
+                .font(.headline)
+            
+            ScrollView {
+                VStack(spacing: 6) {
+                    ForEach(Array(mouseInfo.enumerated()), id: \.offset) { index, info in
+                        VStack(spacing: 4) {
+                            HStack {
+                                Text(emojiManager.getEmoji(for: info.device))
+                                    .font(.title2)
+                                    .foregroundColor(info.device == activeMouse ? .green : .gray)
+                                Text(info.device.prefix(8) + "...")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("Weight: \(String(format: "%.2f", info.weight))")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                            
+                            HStack {
+                                Text("Position: (\(Int(info.position.x)), \(Int(info.position.y)))")
+                                    .font(.caption)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                if let activity = info.activity {
+                                    Text("Active: \(timeAgoString(activity))")
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                } else {
+                                    Text("Inactive")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(info.device == activeMouse ? Color.green.opacity(0.1) : Color.clear)
+                        .cornerRadius(4)
+                    }
+                }
+            }
+            .frame(maxHeight: 150)
+        }
+        .padding()
+        .background(Color.purple.opacity(0.1))
+        .cornerRadius(10)
+    }
+}
+
+// MARK: - Emoji Management
+class EmojiManager: ObservableObject {
+    @Published var mouseEmojis: [String: String] = [:]
+    private let defaultEmojis = ["🐭", "🐹", "🐰", "🐱", "🐶", "🐸", "🐵", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐙", "🦄", "🦋", "🐞", "🦕", "🦖", "🦒"]
+    
+    init() {
+        loadEmojiPreferences()
+    }
+    
+    func getEmoji(for device: String) -> String {
+        if let customEmoji = mouseEmojis[device] {
+            return customEmoji
+        }
+        
+        // Find the next available default emoji
+        let usedEmojis = Set(mouseEmojis.values)
+        for emoji in defaultEmojis {
+            if !usedEmojis.contains(emoji) {
+                return emoji
+            }
+        }
+        
+        // If all default emojis are used, return the first one
+        return defaultEmojis.first ?? "🐭"
+    }
+    
+    func setEmoji(for device: String, emoji: String) {
+        mouseEmojis[device] = emoji
+        saveEmojiPreferences()
+        
+        // Notify that emoji was updated (for cursor updates)
+        NotificationCenter.default.post(name: .emojiUpdated, object: device)
+    }
+    
+    func resetEmoji(for device: String) {
+        mouseEmojis.removeValue(forKey: device)
+        saveEmojiPreferences()
+    }
+    
+    func getDefaultEmojis() -> [String] {
+        return defaultEmojis
+    }
+    
+    private func loadEmojiPreferences() {
+        if let data = UserDefaults.standard.data(forKey: "MouseEmojis"),
+           let emojis = try? JSONDecoder().decode([String: String].self, from: data) {
+            mouseEmojis = emojis
+        }
+    }
+    
+    private func saveEmojiPreferences() {
+        if let data = try? JSONEncoder().encode(mouseEmojis) {
+            UserDefaults.standard.set(data, forKey: "MouseEmojis")
+        }
+    }
+}
+
+struct EmojiSettingsView: View {
+    @ObservedObject var emojiManager: EmojiManager
+    let connectedDevices: [String]
+    @State private var selectedDevice: String = ""
+    @State private var customEmoji: String = ""
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("Custom Mouse Emojis")
+                .font(.headline)
+            
+            ScrollView {
+                VStack(spacing: 6) {
+                    ForEach(connectedDevices.sorted(), id: \.self) { device in
+                        HStack {
+                            Text(emojiManager.getEmoji(for: device))
+                                .font(.title2)
+                            Text(device.prefix(8) + "...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button("Reset") {
+                                emojiManager.resetEmoji(for: device)
+                            }
+                            .font(.caption)
+                            .foregroundColor(.red)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(selectedDevice == device ? Color.blue.opacity(0.2) : Color.gray.opacity(0.1))
+                        .cornerRadius(4)
+                        .onTapGesture {
+                            selectedDevice = device
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 100)
+            
+            Divider()
+            
+            VStack(spacing: 8) {
+                Text("Quick Emoji Picker")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                if selectedDevice.isEmpty {
+                    Text("Select a mouse above to assign an emoji")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 4)
+                }
+                
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 8) {
+                    ForEach(emojiManager.getDefaultEmojis(), id: \.self) { emoji in
+                        Button(action: {
+                            if !selectedDevice.isEmpty {
+                                emojiManager.setEmoji(for: selectedDevice, emoji: emoji)
+                                selectedDevice = ""
+                            }
+                        }) {
+                            Text(emoji)
+                                .font(.title2)
+                                .padding(8)
+                                .background(selectedDevice.isEmpty ? Color.clear : Color.blue.opacity(0.2))
+                                .cornerRadius(8)
+                        }
+                        .disabled(selectedDevice.isEmpty)
+                    }
+                }
+                
+                HStack {
+                    Text("Custom:")
+                        .font(.caption)
+                    TextField("Enter emoji", text: $customEmoji)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .frame(width: 100)
+                    
+                    Button("Set") {
+                        if !selectedDevice.isEmpty && !customEmoji.isEmpty {
+                            emojiManager.setEmoji(for: selectedDevice, emoji: customEmoji)
+                            selectedDevice = ""
+                            customEmoji = ""
+                        }
+                    }
+                    .font(.caption)
+                    .disabled(selectedDevice.isEmpty || customEmoji.isEmpty)
+                }
+            }
+        }
+        .padding()
+        .background(Color.pink.opacity(0.1))
+        .cornerRadius(10)
     }
 }
 
@@ -212,15 +669,42 @@ struct ControlPanelView: View {
 class MultiMouseManager: ObservableObject {
     private var hidManager: IOHIDManager!
     private var mouseDeltas: [IOHIDDevice: (x: Int, y: Int)] = [:]
+    private var mousePositions: [IOHIDDevice: CGPoint] = [:] // Individual mouse positions
     private var mouseWeights: [IOHIDDevice: Double] = [:]
     private var mouseActivity: [IOHIDDevice: Date] = [:]
     private var fusedPosition = CGPoint(x: 500, y: 500)
     private var isRunning = false
     private var lastUpdateTime = Date()
     private var smoothingFactor: Double = 0.7 // Smoothing factor for position updates
+    @Published var useIndividualMode = false // Toggle between individual and fused modes
+    @Published var activeMouse: IOHIDDevice? // Currently active mouse in individual mode
+    
+    // Custom cursor cache
+    private var customCursors: [String: NSCursor] = [:]
     
     init() {
         setupHIDManager()
+        setupNotificationObserver()
+    }
+    
+    private func setupNotificationObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .emojiUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let deviceString = notification.object as? String,
+                  self.useIndividualMode,
+                  let activeMouse = self.activeMouse,
+                  String(describing: activeMouse) == deviceString else { return }
+            
+            // Update cursor for the active mouse
+            if let emojiManager = (NSApplication.shared.delegate as? AppDelegate)?.emojiManager {
+                let emoji = emojiManager.getEmoji(for: deviceString)
+                self.setCustomCursor(for: activeMouse, emoji: emoji)
+            }
+        }
     }
     
     private func setupHIDManager() {
@@ -284,11 +768,68 @@ class MultiMouseManager: ObservableObject {
         isRunning = true
         print("Enhanced multi-mouse triangulation started")
         print("Features: Weighted averaging, activity tracking, smoothing")
+        print("🎮 Individual mouse coordinates tracking enabled")
     }
     
     func stop() {
         isRunning = false
         print("Multi-mouse triangulation stopped")
+    }
+    
+    // MARK: - Custom Cursor Management
+    
+    private func createCustomCursor(from emoji: String) -> NSCursor? {
+        // Check cache first
+        if let cachedCursor = customCursors[emoji] {
+            return cachedCursor
+        }
+        
+        // Create a custom cursor from emoji
+        let size = CGSize(width: 32, height: 32)
+        let image = NSImage(size: size)
+        
+        image.lockFocus()
+        
+        // Create attributed string with emoji
+        let attributedString = NSAttributedString(
+            string: emoji,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 24),
+                .foregroundColor: NSColor.black
+            ]
+        )
+        
+        // Calculate position to center the emoji
+        let stringSize = attributedString.size()
+        let x = (size.width - stringSize.width) / 2
+        let y = (size.height - stringSize.height) / 2
+        
+        // Draw emoji
+        attributedString.draw(at: CGPoint(x: x, y: y))
+        
+        image.unlockFocus()
+        
+        // Create cursor with custom hot spot (center of emoji)
+        let cursor = NSCursor(image: image, hotSpot: CGPoint(x: 16, y: 16))
+        
+        // Cache the cursor
+        customCursors[emoji] = cursor
+        
+        return cursor
+    }
+    
+    func setCustomCursor(for device: IOHIDDevice, emoji: String) {
+        guard let cursor = createCustomCursor(from: emoji) else { return }
+        
+        DispatchQueue.main.async {
+            cursor.set()
+        }
+    }
+    
+    private func resetToDefaultCursor() {
+        DispatchQueue.main.async {
+            NSCursor.arrow.set()
+        }
     }
     
     // Get connected mice count for UI
@@ -317,9 +858,12 @@ class MultiMouseManager: ObservableObject {
                 // Update mouse activity timestamp
                 mouseActivity[device] = currentTime
                 
-                // Initialize mouse weight if not set
+                // Initialize mouse weight and position if not set
                 if mouseWeights[device] == nil {
                     mouseWeights[device] = 1.0
+                }
+                if mousePositions[device] == nil {
+                    mousePositions[device] = CGPoint(x: 500, y: 500) // Default starting position
                 }
                 
                 var delta = mouseDeltas[device] ?? (0, 0)
@@ -330,12 +874,60 @@ class MultiMouseManager: ObservableObject {
                 }
                 mouseDeltas[device] = delta
                 
+                // Update individual mouse position
+                updateIndividualMousePosition(device: device, delta: delta)
+                
                 // Update mouse weights based on activity
                 updateMouseWeights()
                 
-                fuseAndMoveCursor()
+                // Handle cursor movement based on mode
+                if useIndividualMode {
+                    handleIndividualMode(device: device)
+                } else {
+                    fuseAndMoveCursor()
+                }
             }
         }
+    }
+    
+    private func updateIndividualMousePosition(device: IOHIDDevice, delta: (x: Int, y: Int)) {
+        guard let currentPos = mousePositions[device] else { return }
+        
+        let newX = currentPos.x + CGFloat(delta.x)
+        let newY = currentPos.y + CGFloat(delta.y)
+        
+        // Clamp to screen bounds
+        if let screenFrame = NSScreen.main?.frame {
+            mousePositions[device] = CGPoint(
+                x: max(0, min(newX, screenFrame.width - 1)),
+                y: max(0, min(newY, screenFrame.height - 1))
+            )
+        } else {
+            mousePositions[device] = CGPoint(x: newX, y: newY)
+        }
+    }
+    
+    private func handleIndividualMode(device: IOHIDDevice) {
+        // Set this as the active mouse
+        DispatchQueue.main.async {
+            self.activeMouse = device
+        }
+        
+        // Move cursor to this mouse's position
+        if let position = mousePositions[device] {
+            CGWarpMouseCursorPosition(position)
+            CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+            
+            // Set custom cursor for this mouse
+            let deviceString = String(describing: device)
+            if let emojiManager = (NSApplication.shared.delegate as? AppDelegate)?.emojiManager {
+                let emoji = emojiManager.getEmoji(for: deviceString)
+                setCustomCursor(for: device, emoji: emoji)
+            }
+        }
+        
+        // Clear deltas after processing
+        mouseDeltas[device] = (0, 0)
     }
     
     private func updateMouseWeights() {
@@ -403,17 +995,84 @@ class MultiMouseManager: ObservableObject {
             CGWarpMouseCursorPosition(fusedPosition)
             CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
             
+            // Reset to default cursor in fused mode
+            resetToDefaultCursor()
+            
             lastUpdateTime = currentTime
         }
     }
     
+    // Public methods for mode switching and information
+    func toggleMode() {
+        useIndividualMode.toggle()
+        let modeName = useIndividualMode ? "Individual" : "Fused"
+        print("🔄 Switched to \(modeName) Mode")
+        print("📊 Individual Mode: Each mouse controls cursor independently")
+        print("🔗 Fused Mode: All mice contribute to single cursor position")
+        
+        // Update cursor based on mode
+        if useIndividualMode {
+            // Set cursor for the most recently active mouse
+            if let activeMouse = activeMouse {
+                let deviceString = String(describing: activeMouse)
+                if let emojiManager = (NSApplication.shared.delegate as? AppDelegate)?.emojiManager {
+                    let emoji = emojiManager.getEmoji(for: deviceString)
+                    setCustomCursor(for: activeMouse, emoji: emoji)
+                }
+            }
+        } else {
+            // Reset to default cursor in fused mode
+            resetToDefaultCursor()
+        }
+    }
+    
+    func getIndividualMousePositions() -> [String: CGPoint] {
+        var positions: [String: CGPoint] = [:]
+        for (device, position) in mousePositions {
+            positions[String(describing: device)] = position
+        }
+        return positions
+    }
+    
+    func getActiveMouse() -> String? {
+        guard let activeMouse = activeMouse else { return nil }
+        return String(describing: activeMouse)
+    }
+    
+    func getMode() -> String {
+        return useIndividualMode ? "Individual" : "Fused"
+    }
+    
     // Get detailed mouse information for debugging
-    func getMouseInfo() -> [(device: String, weight: Double, activity: Date?)] {
+    func getMouseInfo() -> [(device: String, weight: Double, activity: Date?, position: CGPoint)] {
         return mouseDeltas.map { (device, _) in
             let deviceName = String(describing: device)
             let weight = mouseWeights[device] ?? 1.0
             let activity = mouseActivity[device]
-            return (device: deviceName, weight: weight, activity: activity)
+            let position = mousePositions[device] ?? CGPoint(x: 0, y: 0)
+            return (device: deviceName, weight: weight, activity: activity, position: position)
+        }
+    }
+    
+    func printIndividualPositions() {
+        print("Individual Mouse Positions:")
+        for (device, position) in mousePositions {
+            print("Device: \(String(describing: device)), Position: (\(Int(position.x)), \(Int(position.y)))")
+        }
+    }
+    
+    func printActiveMouse() {
+        if let active = activeMouse {
+            print("Active Mouse: \(String(describing: active))")
+        } else {
+            print("No active mouse.")
+        }
+    }
+    
+    func printDetailedMouseInfo() {
+        print("Detailed Mouse Information:")
+        for (device, weight, activity, position) in getMouseInfo() {
+            print("Device: \(device), Weight: \(weight), Activity: \(activity?.description ?? "N/A"), Position: (\(Int(position.x)), \(Int(position.y)))")
         }
     }
 }
