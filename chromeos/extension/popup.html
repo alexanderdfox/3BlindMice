@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            width: 300px;
+            min-height: 400px;
+            margin: 0;
+            padding: 16px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin: 4px 0 0 0;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .status-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .status-value {
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 12px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        
+        .button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .button:active {
+            transform: translateY(0);
+        }
+        
+        .button.primary {
+            background: rgba(76, 175, 80, 0.8);
+            border-color: rgba(76, 175, 80, 1);
+        }
+        
+        .button.primary:hover {
+            background: rgba(76, 175, 80, 1);
+        }
+        
+        .button.danger {
+            background: rgba(244, 67, 54, 0.8);
+            border-color: rgba(244, 67, 54, 1);
+        }
+        
+        .button.danger:hover {
+            background: rgba(244, 67, 54, 1);
+        }
+        
+        .button.secondary {
+            background: rgba(33, 150, 243, 0.8);
+            border-color: rgba(33, 150, 243, 1);
+        }
+        
+        .button.secondary:hover {
+            background: rgba(33, 150, 243, 1);
+        }
+        
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .button:disabled:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: none;
+        }
+        
+        .info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 16px;
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        
+        .info h4 {
+            margin: 0 0 8px 0;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .info ul {
+            margin: 0;
+            padding-left: 16px;
+        }
+        
+        .info li {
+            margin-bottom: 4px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🐭 3 Blind Mice</h1>
+        <p>Multi-Mouse Triangulation</p>
+    </div>
+    
+    <div class="status">
+        <div class="status-item">
+            <span class="status-label">Status:</span>
+            <span class="status-value" id="status">Stopped</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Mode:</span>
+            <span class="status-value" id="mode">Fused</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Mice Detected:</span>
+            <span class="status-value" id="mouseCount">0</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Active Mouse:</span>
+            <span class="status-value" id="activeMouse">None</span>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button id="toggleTriangulation" class="button primary">
+            Start Triangulation
+        </button>
+        
+        <button id="toggleMode" class="button secondary">
+            Switch to Individual Mode
+        </button>
+        
+        <button id="refreshStatus" class="button">
+            Refresh Status
+        </button>
+    </div>
+    
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        Processing...
+    </div>
+    
+    <div class="info">
+        <h4>Keyboard Shortcuts:</h4>
+        <ul>
+            <li>Ctrl+Shift+M: Toggle triangulation</li>
+            <li>Ctrl+Shift+T: Switch mode</li>
+        </ul>
+        
+        <h4>Instructions:</h4>
+        <ul>
+            <li>Connect multiple mice to your Chromebook</li>
+            <li>Click "Start Triangulation" to begin</li>
+            <li>Move any mouse to control the cursor</li>
+            <li>Switch between Individual and Fused modes</li>
+        </ul>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>

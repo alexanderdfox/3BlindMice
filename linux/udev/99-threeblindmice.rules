@@ -1,0 +1,12 @@
+# udev rules for 3 Blind Mice multi-mouse triangulation
+# This allows users in the 'input' group to access mouse devices
+
+# Allow input group to access mouse devices
+SUBSYSTEM=="input", KERNEL=="mouse[0-9]*", GROUP="input", MODE="0664"
+SUBSYSTEM=="input", KERNEL=="event[0-9]*", GROUP="input", MODE="0664"
+
+# Allow input group to access USB HID devices (mice)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="*", ATTRS{idProduct}=="*", GROUP="input", MODE="0664"
+
+# Allow input group to access PS/2 mouse devices
+SUBSYSTEM=="serio", KERNEL=="serio[0-9]*", GROUP="input", MODE="0664"
