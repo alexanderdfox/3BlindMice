@@ -1,0 +1,10 @@
+// Windows resource file for 3 Blind Mice icons
+#include <windows.h>
+
+// Application icon
+IDI_APP_ICON ICON "icon_256x256.ico"
+
+// Small icons for different contexts
+IDI_APP_ICON_SMALL ICON "icon_16x16.ico"
+IDI_APP_ICON_MEDIUM ICON "icon_32x32.ico"
+IDI_APP_ICON_LARGE ICON "icon_128x128.ico"
