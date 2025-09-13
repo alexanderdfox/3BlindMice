@@ -26,8 +26,6 @@ A sophisticated cross-platform application that enables multiple mice to control
 │   │   ├── cli/                # Command-line interface
 │   │   │   ├── 3blindmice.swift
 │   │   │   └── 3blindmice_with_permissions.swift
-│   │   ├── gui/                # Graphical interface (Xcode project)
-│   │   │   └── ThreeBlindMice/ # SwiftUI application
 │   │   └── hipaa/              # HIPAA compliance modules
 │   │       ├── HIPAASecurity.swift
 │   │       └── HIPAADataManager.swift
@@ -35,23 +33,40 @@ A sophisticated cross-platform application that enables multiple mice to control
 │   ├── ThreeBlindMice.xcodeproj/ # Xcode project
 │   ├── ThreeBlindMice.xcworkspace/ # Xcode workspace
 │   ├── Package.swift           # Swift Package Manager
-│   └── scripts/                # Build and utility scripts
+│   ├── scripts/                # Build and utility scripts
+│   ├── test_macos.sh           # macOS testing script
+│   └── TEST_RESULTS.md         # macOS test results
 ├── windows/                    # Windows implementation
 │   ├── src/
 │   │   ├── swift/             # Swift source code
-│   │   └── cpp/               # C++ Windows API wrapper
+│   │   │   ├── main.swift
+│   │   │   └── MultiMouseManager.swift
+│   │   ├── cpp/               # C++ Windows API wrapper
+│   │   └── hipaa/             # HIPAA compliance modules
+│   │       ├── HIPAASecurity.swift
+│   │       └── HIPAADataManager.swift
 │   ├── CMakeLists.txt         # CMake build configuration
 │   ├── build.bat              # Windows build script
-│   └── run.bat                # Windows run script
+│   ├── run.bat                # Windows run script
+│   ├── test_windows.sh         # Windows testing script
+│   └── TEST_RESULTS.md        # Windows test results
 ├── linux/                     # Linux implementation
 │   ├── src/
 │   │   ├── swift/             # Swift source code
-│   │   └── c/                 # C Linux API wrapper
+│   │   │   ├── main.swift
+│   │   │   └── MultiMouseManager.swift
+│   │   ├── c/                 # C Linux API wrapper
+│   │   └── hipaa/             # HIPAA compliance modules
+│   │       ├── HIPAASecurity.swift
+│   │       └── HIPAADataManager.swift
 │   ├── udev/                  # udev rules for device access
 │   ├── CMakeLists.txt         # CMake build configuration
 │   ├── build.sh               # Linux build script
 │   ├── run.sh                 # Linux run script
-│   └── install.sh             # Linux installation script
+│   ├── install.sh             # Linux installation script
+│   ├── test_linux.sh           # Linux testing script
+│   ├── test_macos.sh          # macOS testing script for Linux code
+│   └── TEST_RESULTS.md        # Linux test results
 ├── chromeos/                  # ChromeOS implementation
 │   ├── extension/             # Chrome Extension
 │   │   ├── manifest.json      # Extension manifest
@@ -62,19 +77,18 @@ A sophisticated cross-platform application that enables multiple mice to control
 │   │   └── icons/             # Extension icons
 │   ├── src/
 │   │   ├── swift/             # Swift source code (Crostini)
-│   │   └── c/                 # C Linux API wrapper (Crostini)
+│   │   │   ├── main.swift
+│   │   │   └── MultiMouseManager.swift
+│   │   ├── c/                 # C Linux API wrapper (Crostini)
+│   │   └── hipaa/             # HIPAA compliance modules
+│   │       ├── HIPAASecurity.swift
+│   │       └── HIPAADataManager.swift
 │   ├── CMakeLists.txt         # CMake build configuration (Crostini)
 │   ├── build.sh               # Build script (Crostini)
 │   ├── run.sh                 # Run script (Crostini)
-│   └── package.sh             # Package extension
-├── macos/scripts/             # macOS build and utility scripts
-│   ├── build_and_run.sh      # Build and launch GUI version
-│   ├── run_release.sh         # Launch existing release build
-│   ├── test_permissions.sh    # Check app permissions
-│   ├── fix_permissions.sh     # Guide through permission setup
-│   ├── generate_icon.sh       # Generate app icons
-│   ├── install_icons.sh       # Install icons to Xcode project
-│   └── build.sh               # Build CLI version
+│   ├── package.sh             # Package extension
+│   ├── test_chromeos.sh       # ChromeOS testing script
+│   └── TEST_RESULTS.md        # ChromeOS test results
 ├── docs/                      # Documentation
 │   ├── USAGE.md              # Use cases and scenarios
 │   ├── TRIANGULATION_ENHANCEMENTS.md
@@ -83,12 +97,11 @@ A sophisticated cross-platform application that enables multiple mice to control
 │   └── hipaa/                # HIPAA compliance documentation
 │       ├── HIPAA_COMPLIANCE.md
 │       ├── BAA_TEMPLATE.md
-│       └── PRIVACY_POLICY.md
+│       ├── PRIVACY_POLICY.md
+│       ├── INCIDENT_RESPONSE.md
+│       └── CROSS_PLATFORM_HIPAA_COMPLIANCE.md
 ├── assets/
 │   └── icons/                 # App icons
-├── ThreeBlindMice.xcodeproj/  # Xcode project (macOS)
-├── ThreeBlindMice.xcworkspace/
-├── Package.swift              # Swift Package Manager
 └── README.md                  # This file
 ```
 
@@ -314,8 +327,10 @@ For detailed troubleshooting, see `docs/HID_PERMISSIONS_GUIDE.md`.
 ### Compliance Documentation
 
 - **HIPAA Compliance Guide**: `docs/hipaa/HIPAA_COMPLIANCE.md`
+- **Cross-Platform HIPAA Compliance**: `docs/hipaa/CROSS_PLATFORM_HIPAA_COMPLIANCE.md`
 - **Business Associate Agreement**: `docs/hipaa/BAA_TEMPLATE.md`
 - **Privacy Policy**: `docs/hipaa/PRIVACY_POLICY.md`
+- **Incident Response Plan**: `docs/hipaa/INCIDENT_RESPONSE.md`
 
 ### Healthcare Use Cases
 
@@ -327,13 +342,23 @@ For detailed troubleshooting, see `docs/HID_PERMISSIONS_GUIDE.md`.
 
 ### Implementation
 
-The HIPAA compliance features are implemented in the `src/hipaa/` directory:
+The HIPAA compliance features are implemented across all platforms in the `src/hipaa/` directories:
 
 ```swift
-// Example: HIPAA-compliant data handling
+// Example: HIPAA-compliant data handling (all platforms)
+let securityManager = HIPAASecurityManager.shared
 let dataManager = HIPAADataManager.shared
-let success = dataManager.storePHI(phiData, userId: userId)
+
+// Secure mouse input logging
+let mouseData = MouseInputData(...)
+let success = dataManager.storeMouseInputData(mouseData, userId: userId)
 ```
+
+**Platform-Specific Integration:**
+- **macOS**: `macos/src/hipaa/` - Native IOKit integration
+- **Windows**: `windows/src/hipaa/` - Windows API integration  
+- **Linux**: `linux/src/hipaa/` - evdev and X11 integration
+- **ChromeOS**: `chromeos/src/hipaa/` - Chrome Extension and Crostini integration
 
 ## 🎯 Use Cases
 
@@ -395,11 +420,13 @@ For technical details, see `docs/TRIANGULATION_ENHANCEMENTS.md`.
 #### macOS
 1. **GUI Version**:
    ```bash
+   cd macos/
    xcodebuild -project ThreeBlindMice.xcodeproj -scheme ThreeBlindMice -configuration Release build
    ```
 
 2. **CLI Version**:
    ```bash
+   cd macos/
    swift src/cli/3blindmice.swift
    ```
 
@@ -433,13 +460,13 @@ make -j$(nproc)
 
 ### Project Structure
 
-- **macOS**: Xcode project (`ThreeBlindMice.xcodeproj/`)
-- **Windows**: CMake project (`windows/CMakeLists.txt`)
-- **Linux**: CMake project (`linux/CMakeLists.txt`)
+- **macOS**: Xcode project (`macos/ThreeBlindMice.xcodeproj/`) + Swift Package (`macos/Package.swift`)
+- **Windows**: CMake project (`windows/CMakeLists.txt`) + Swift/C++ hybrid
+- **Linux**: CMake project (`linux/CMakeLists.txt`) + Swift/C hybrid
 - **ChromeOS**: Chrome Extension (`chromeos/extension/`) + CMake project (`chromeos/CMakeLists.txt`)
-- **Swift Package**: `Package.swift` (macOS)
-- **Source Code**: Platform-specific directories
-- **Documentation**: `docs/` directory
+- **HIPAA Compliance**: Cross-platform modules in each `src/hipaa/` directory
+- **Testing**: Platform-specific test scripts and results
+- **Documentation**: `docs/` directory with comprehensive HIPAA compliance guides
 
 ## 📄 License
 
