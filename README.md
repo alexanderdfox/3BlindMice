@@ -430,10 +430,10 @@ For technical details, see `docs/TRIANGULATION_ENHANCEMENTS.md`.
 # Install dependencies
 pip install Pillow
 
-# Generate programmatic mouse icons
+# Generate from default icon.png
 python3 scripts/generate_icons.py
 
-# Generate from your logo
+# Generate from your custom logo
 python3 scripts/generate_icons.py your_logo.png
 ```
 

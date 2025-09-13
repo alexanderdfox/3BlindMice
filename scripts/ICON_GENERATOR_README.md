@@ -20,10 +20,10 @@ A comprehensive icon generation system that creates platform-specific icons for 
 # Install dependencies
 pip install Pillow
 
-# Generate programmatic icons
+# Generate from default icon.png
 python3 scripts/generate_icons.py
 
-# Generate from source image
+# Generate from custom source image
 python3 scripts/generate_icons.py logo.png
 
 # Custom output directory
@@ -47,10 +47,10 @@ python3 scripts/generate_icons.py --platform macos logo.png
 # Make executable
 chmod +x scripts/generate_icons.sh
 
-# Generate programmatic icons
+# Generate from default icon.png
 ./scripts/generate_icons.sh
 
-# Generate from source image
+# Generate from custom source image
 ./scripts/generate_icons.sh logo.png
 
 # Custom output directory
@@ -71,10 +71,10 @@ chmod +x scripts/generate_icons.sh
 # Install dependencies
 npm install sharp canvas
 
-# Generate programmatic icons
+# Generate from default icon.png
 node scripts/generate_icons.js
 
-# Generate from source image
+# Generate from custom source image
 node scripts/generate_icons.js logo.png
 
 # Custom output directory

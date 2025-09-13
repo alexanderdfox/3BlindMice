@@ -9,8 +9,8 @@
 #   ./scripts/generate_icons.sh [source_image] [output_dir]
 # 
 # Examples:
-#   ./scripts/generate_icons.sh                    # Generate from default mouse icon
-#   ./scripts/generate_icons.sh logo.png            # Generate from source image
+#   ./scripts/generate_icons.sh                    # Generate from default icon.png
+#   ./scripts/generate_icons.sh logo.png            # Generate from custom source image
 #   ./scripts/generate_icons.sh logo.png custom/    # Custom output directory
 
 set -e
@@ -20,6 +20,17 @@ SOURCE_IMAGE="${1:-}"
 OUTPUT_DIR="${2:-assets/icons}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Use default icon.png if no source image provided
+if [[ -z "$SOURCE_IMAGE" ]]; then
+    DEFAULT_ICON="$SCRIPT_DIR/icon.png"
+    if [[ -f "$DEFAULT_ICON" ]]; then
+        SOURCE_IMAGE="$DEFAULT_ICON"
+        echo -e "${BLUE}📷 Using default icon: $SOURCE_IMAGE${NC}"
+    else
+        echo -e "${YELLOW}⚠️  No default icon.png found, generating programmatic icons${NC}"
+    fi
+fi
 
 # Colors for output
 RED='\033[0;31m'

@@ -29,7 +29,19 @@ class IconGenerator:
     """Cross-platform icon generator for 3 Blind Mice"""
     
     def __init__(self, source_image=None, output_dir="assets/icons"):
-        self.source_image = source_image
+        # Use default icon.png if no source image provided
+        if source_image is None:
+            script_dir = Path(__file__).parent
+            default_icon = script_dir / "icon.png"
+            if default_icon.exists():
+                self.source_image = str(default_icon)
+                print(f"📷 Using default icon: {self.source_image}")
+            else:
+                self.source_image = None
+                print("⚠️  No default icon.png found, generating programmatic icons")
+        else:
+            self.source_image = source_image
+        
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
@@ -398,8 +410,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 scripts/generate_icons.py                    # Generate programmatic icons
-  python3 scripts/generate_icons.py logo.png           # Generate from source image
+  python3 scripts/generate_icons.py                    # Generate from default icon.png
+  python3 scripts/generate_icons.py logo.png           # Generate from custom source image
   python3 scripts/generate_icons.py logo.png custom/   # Custom output directory
         """
     )
@@ -435,10 +447,10 @@ Examples:
     
     # Load source image if provided
     source_img = None
-    if args.source_image:
+    if generator.source_image:
         try:
-            source_img = Image.open(args.source_image)
-            print(f"📷 Loaded source image: {args.source_image}")
+            source_img = Image.open(generator.source_image)
+            print(f"📷 Loaded source image: {generator.source_image}")
             print(f"   Size: {source_img.size}")
             print(f"   Mode: {source_img.mode}")
         except Exception as e:

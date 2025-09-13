@@ -10,8 +10,8 @@
  *   node scripts/generate_icons.js [source_image] [output_dir]
  * 
  * Examples:
- *   node scripts/generate_icons.js                    # Generate programmatic icons
- *   node scripts/generate_icons.js logo.png            # Generate from source image
+ *   node scripts/generate_icons.js                    # Generate from default icon.png
+ *   node scripts/generate_icons.js logo.png            # Generate from custom source image
  *   node scripts/generate_icons.js logo.png custom/    # Custom output directory
  * 
  * Requirements:
@@ -35,7 +35,21 @@ const CONFIG = {
 
 class IconGenerator {
     constructor(sourceImage = null, outputDir = 'assets/icons') {
-        this.sourceImage = sourceImage;
+        // Use default icon.png if no source image provided
+        if (sourceImage === null) {
+            const scriptDir = path.dirname(__filename);
+            const defaultIcon = path.join(scriptDir, 'icon.png');
+            if (fs.existsSync(defaultIcon)) {
+                this.sourceImage = defaultIcon;
+                console.log(`📷 Using default icon: ${this.sourceImage}`);
+            } else {
+                this.sourceImage = null;
+                console.log('⚠️  No default icon.png found, generating programmatic icons');
+            }
+        } else {
+            this.sourceImage = sourceImage;
+        }
+        
         this.outputDir = path.resolve(outputDir);
         this.generatedFiles = [];
     }
