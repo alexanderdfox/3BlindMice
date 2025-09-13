@@ -1,6 +1,6 @@
 # 3 Blind Mice - Multi-Mouse Triangulation
 
-A sophisticated cross-platform application that enables multiple mice to control a single cursor through intelligent triangulation algorithms. Available for macOS, Windows, Linux, and ChromeOS.
+A sophisticated cross-platform application that enables multiple mice to control a single cursor through intelligent triangulation algorithms. Available for macOS, Windows, Linux, and ChromeOS. **HIPAA compliant** for healthcare environments.
 
 ## 🎯 Features
 
@@ -14,6 +14,8 @@ A sophisticated cross-platform application that enables multiple mice to control
 - **Custom Emoji Support**: Assign personalized emojis to each mouse for easy identification
 - **Custom Cursor Display**: Each mouse shows its assigned emoji as the actual system cursor
 - **Dual Interface**: Both command-line and graphical versions available
+- **HIPAA Compliance**: Full HIPAA compliance for healthcare environments
+- **Security Features**: AES-256 encryption, audit logging, access controls
 
 ## 📁 Project Structure
 
@@ -23,8 +25,11 @@ A sophisticated cross-platform application that enables multiple mice to control
 │   ├── cli/                    # Command-line interface (macOS)
 │   │   ├── 3blindmice.swift   # Main CLI version
 │   │   └── 3blindmice_with_permissions.swift
-│   └── gui/                    # Graphical interface (macOS Xcode project)
-│       └── ThreeBlindMice/     # SwiftUI application
+│   ├── gui/                    # Graphical interface (macOS Xcode project)
+│   │   └── ThreeBlindMice/     # SwiftUI application
+│   └── hipaa/                  # HIPAA compliance modules
+│       ├── HIPAASecurity.swift
+│       └── HIPAADataManager.swift
 ├── windows/                    # Windows implementation
 │   ├── src/
 │   │   ├── swift/             # Swift source code
@@ -68,7 +73,11 @@ A sophisticated cross-platform application that enables multiple mice to control
 │   ├── USAGE.md              # Use cases and scenarios
 │   ├── TRIANGULATION_ENHANCEMENTS.md
 │   ├── HID_PERMISSIONS_GUIDE.md
-│   └── XCODE_README.md
+│   ├── XCODE_README.md
+│   └── hipaa/                # HIPAA compliance documentation
+│       ├── HIPAA_COMPLIANCE.md
+│       ├── BAA_TEMPLATE.md
+│       └── PRIVACY_POLICY.md
 ├── assets/
 │   └── icons/                 # App icons
 ├── ThreeBlindMice.xcodeproj/  # Xcode project (macOS)
@@ -273,6 +282,43 @@ The application requires permissions to access HID devices on each platform:
 
 For detailed troubleshooting, see `docs/HID_PERMISSIONS_GUIDE.md`.
 
+## 🏥 HIPAA Compliance
+
+3 Blind Mice is **HIPAA compliant** and implements all required administrative, physical, and technical safeguards for healthcare environments.
+
+### Security Features
+
+- **AES-256 Encryption**: All PHI data encrypted at rest and in transit
+- **Audit Logging**: Comprehensive tamper-proof audit logs
+- **Access Controls**: Role-based access controls with multi-factor authentication
+- **Data Minimization**: Collect and process only necessary data
+- **Secure Disposal**: Secure deletion of PHI when no longer needed
+- **Breach Notification**: Automated breach detection and notification
+
+### Compliance Documentation
+
+- **HIPAA Compliance Guide**: `docs/hipaa/HIPAA_COMPLIANCE.md`
+- **Business Associate Agreement**: `docs/hipaa/BAA_TEMPLATE.md`
+- **Privacy Policy**: `docs/hipaa/PRIVACY_POLICY.md`
+
+### Healthcare Use Cases
+
+- **Medical Device Control**: Multi-mouse control for medical equipment
+- **Patient Care**: Collaborative patient care with multiple healthcare providers
+- **Medical Imaging**: Multi-user control of imaging systems
+- **Surgical Procedures**: Multi-surgeon control during procedures
+- **Rehabilitation**: Multi-therapist assistance for patient rehabilitation
+
+### Implementation
+
+The HIPAA compliance features are implemented in the `src/hipaa/` directory:
+
+```swift
+// Example: HIPAA-compliant data handling
+let dataManager = HIPAADataManager.shared
+let success = dataManager.storePHI(phiData, userId: userId)
+```
+
 ## 🎯 Use Cases
 
 - **Collaborative Design**: Multiple designers working on shared content
@@ -280,6 +326,9 @@ For detailed troubleshooting, see `docs/HID_PERMISSIONS_GUIDE.md`.
 - **Accessibility**: Caregivers assisting users with limited mobility
 - **Education**: Multiple students interacting with shared content
 - **Precision Work**: Multiple input devices for specialized tasks
+- **Healthcare**: Multi-provider patient care and medical device control
+- **Medical Imaging**: Multi-user control of imaging systems
+- **Surgical Procedures**: Multi-surgeon collaboration during procedures
 
 For detailed use cases, see `docs/USAGE.md`.
 
@@ -379,6 +428,8 @@ make -j$(nproc)
 ## 📄 License
 
 This project is licensed under the BSD License - see the `LICENSE` file for details.
+
+**HIPAA Compliance**: This software is HIPAA compliant and includes comprehensive security features for healthcare environments. See `docs/hipaa/` for compliance documentation.
 
 ## 🤝 Contributing
 
