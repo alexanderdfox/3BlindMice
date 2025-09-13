@@ -129,3 +129,94 @@ Temporary Items
 # Generated icons (keep source scripts, ignore generated files)
 # Uncomment if you want to ignore generated icons
 # assets/icons/*.png
+
+# =============================================================================
+# HIDDEN FILES - ALL OPERATING SYSTEMS
+# =============================================================================
+
+# macOS Hidden Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.AppleDouble
+.LSOverride
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows Hidden Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+*.url
+*.tmp
+*.temp
+*.log
+*.bak
+*.swp
+*.swo
+*~
+
+# Linux Hidden Files
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+*.swp
+*.swo
+*.tmp
+*.temp
+*.log
+*.bak
+*.orig
+*.rej
+.dmrc
+.session
+.ICEauthority
+.Xauthority
+.xsession-errors
+.xsession-errors.old
+
+# ChromeOS Hidden Files
+.cache/
+.tmp/
+*.tmp
+*.temp
+*.log
+*.bak
+*.swp
+*.swo
+*~
+
+# Cross-Platform Hidden Files
+.DS_Store
+Thumbs.db
+desktop.ini
+.folder
+.Trash-*
+*.tmp
+*.temp
+*.log
+*.bak
+*.swp
+*.swo
+*~
