@@ -34,9 +34,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem.button {
-            // Create a custom image with the mouse emoji
-            let emojiImage = createEmojiImage("🐭", size: NSSize(width: 18, height: 18))
-            button.image = emojiImage
+            // Use the high-quality icon.png for system tray
+            if let iconImage = loadSystemTrayIcon() {
+                button.image = iconImage
+            } else {
+                // Fallback to emoji if icon.png is not available
+                let emojiImage = createEmojiImage("🐭", size: NSSize(width: 18, height: 18))
+                button.image = emojiImage
+            }
             button.action = #selector(togglePopover)
             button.target = self
         }
@@ -77,6 +82,47 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     
     func quitApp() {
         NSApplication.shared.terminate(nil)
+    }
+    
+    private func loadSystemTrayIcon() -> NSImage? {
+        // Try multiple approaches to load the icon
+        
+        // First, try to load from app bundle resources
+        if let iconImage = NSImage(named: "icon") {
+            return resizeImageForSystemTray(iconImage)
+        }
+        
+        // Second, try to load from the app bundle path
+        if let iconPath = Bundle.main.path(forResource: "icon", ofType: "png"),
+           let iconImage = NSImage(contentsOfFile: iconPath) {
+            print("✅ Loaded system tray icon from bundle path")
+            return resizeImageForSystemTray(iconImage)
+        }
+        
+        // Third, try to load from the app's main bundle
+        let bundlePath = Bundle.main.bundlePath
+        if let iconImage = NSImage(contentsOfFile: "\(bundlePath)/Contents/Resources/icon.png") {
+            print("✅ Loaded system tray icon from app bundle")
+            return resizeImageForSystemTray(iconImage)
+        }
+        
+        print("⚠️  icon.png not found in app bundle")
+        return nil
+    }
+    
+    private func resizeImageForSystemTray(_ image: NSImage) -> NSImage {
+        // Resize to appropriate system tray size (18x18 points)
+        let traySize = NSSize(width: 18, height: 18)
+        let resizedImage = NSImage(size: traySize)
+        
+        resizedImage.lockFocus()
+        image.draw(in: NSRect(origin: .zero, size: traySize))
+        resizedImage.unlockFocus()
+        
+        // Set template mode for proper system tray appearance
+        resizedImage.isTemplate = true
+        
+        return resizedImage
     }
     
     private func createEmojiImage(_ emoji: String, size: NSSize) -> NSImage {
