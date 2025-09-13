@@ -1,0 +1,41 @@
+{
+  "name": "three-blind-mice-icon-generator",
+  "version": "1.0.0",
+  "description": "Cross-platform icon generator for 3 Blind Mice",
+  "main": "generate_icons.js",
+  "scripts": {
+    "generate": "node generate_icons.js",
+    "generate:macos": "node generate_icons.js --platform macos",
+    "generate:windows": "node generate_icons.js --platform windows",
+    "generate:linux": "node generate_icons.js --platform linux",
+    "generate:chromeos": "node generate_icons.js --platform chromeos"
+  },
+  "keywords": [
+    "icon",
+    "generator",
+    "cross-platform",
+    "macos",
+    "windows",
+    "linux",
+    "chromeos",
+    "3-blind-mice"
+  ],
+  "author": "3 Blind Mice Team",
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "sharp": "^0.32.6",
+    "canvas": "^2.11.2"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexanderdfox/3BlindMice.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alexanderdfox/3BlindMice/issues"
+  },
+  "homepage": "https://github.com/alexanderdfox/3BlindMice#readme"
+}

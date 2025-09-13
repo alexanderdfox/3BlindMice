@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=3 Blind Mice
+Comment=Multi-Mouse Triangulation Tool
+Exec=threeblindmice
+Icon=threeblindmice
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=mouse;multi;accessibility;triangulation;

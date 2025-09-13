@@ -100,6 +100,12 @@ A sophisticated cross-platform application that enables multiple mice to control
 │       ├── PRIVACY_POLICY.md
 │       ├── INCIDENT_RESPONSE.md
 │       └── CROSS_PLATFORM_HIPAA_COMPLIANCE.md
+├── scripts/                   # Build and utility scripts
+│   ├── generate_icons.py     # Python icon generator
+│   ├── generate_icons.sh     # Shell script icon generator
+│   ├── generate_icons.js     # Node.js icon generator
+│   ├── package.json          # Node.js dependencies
+│   └── ICON_GENERATOR_README.md # Icon generator documentation
 ├── assets/
 │   └── icons/                 # App icons
 └── README.md                  # This file
@@ -412,6 +418,59 @@ For technical details, see `docs/TRIANGULATION_ENHANCEMENTS.md`.
 - **HID**: Chrome input API or evdev interface
 - **Cursor Control**: Web APIs or X11 XTest
 - **Build**: Chrome Extension or CMake (Crostini)
+
+## 🎨 Icon Generation
+
+3 Blind Mice includes a comprehensive cross-platform icon generator that creates platform-specific icons for all supported platforms.
+
+### Quick Icon Generation
+
+#### Python Generator (Recommended)
+```bash
+# Install dependencies
+pip install Pillow
+
+# Generate programmatic mouse icons
+python3 scripts/generate_icons.py
+
+# Generate from your logo
+python3 scripts/generate_icons.py your_logo.png
+```
+
+#### Shell Script Generator
+```bash
+# Install ImageMagick (if not on macOS)
+brew install imagemagick  # macOS
+sudo apt install imagemagick  # Ubuntu/Debian
+
+# Generate icons
+./scripts/generate_icons.sh your_logo.png
+```
+
+#### Node.js Generator
+```bash
+# Install dependencies
+cd scripts && npm install
+
+# Generate icons
+node generate_icons.js your_logo.png
+```
+
+### Generated Icon Formats
+
+- **macOS**: PNG, ICNS (with .iconset for Xcode)
+- **Windows**: PNG, ICO (with resource file)
+- **Linux**: PNG, SVG (with desktop file)
+- **ChromeOS**: PNG (with manifest snippet)
+
+### Icon Sizes
+
+- **macOS**: 16, 32, 64, 128, 256, 512, 1024px (+ @2x variants)
+- **Windows**: 16, 24, 32, 48, 64, 96, 128, 256px
+- **Linux**: 16, 24, 32, 48, 64, 96, 128, 256, 512px
+- **ChromeOS**: 16, 32, 48, 128px
+
+For detailed documentation, see `scripts/ICON_GENERATOR_README.md`.
 
 ## 🛠️ Development
 
