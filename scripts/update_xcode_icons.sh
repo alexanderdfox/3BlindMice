@@ -97,6 +97,61 @@ else
     echo -e "  ✅ Updated Contents.json"
 fi
 
+# Check for AccentColor
+echo -e "${BLUE}🎨 Checking AccentColor...${NC}"
+
+ACCENT_COLOR_DIR="macos/ThreeBlindMice/Assets.xcassets/AccentColor.colorset"
+if [[ -d "$ACCENT_COLOR_DIR" ]]; then
+    echo -e "  ✅ AccentColor.colorset already exists"
+else
+    echo -e "  🔧 Creating AccentColor.colorset..."
+    
+    mkdir -p "$ACCENT_COLOR_DIR"
+    
+    cat > "$ACCENT_COLOR_DIR/Contents.json" << 'EOF'
+{
+  "colors" : [
+    {
+      "color" : {
+        "color-space" : "srgb",
+        "components" : {
+          "alpha" : "1.000",
+          "blue" : "0.200",
+          "green" : "0.200",
+          "red" : "0.200"
+        }
+      },
+      "idiom" : "universal"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "color" : {
+        "color-space" : "srgb",
+        "components" : {
+          "alpha" : "1.000",
+          "blue" : "0.400",
+          "green" : "0.400",
+          "red" : "0.400"
+        }
+      },
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+EOF
+    
+    echo -e "  ✅ Created AccentColor.colorset"
+fi
+
 # Update ChromeOS extension icons
 echo -e "${BLUE}🌐 Updating ChromeOS extension icons...${NC}"
 
