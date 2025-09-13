@@ -53,6 +53,8 @@ target_link_libraries(ThreeBlindMiceChromeOSLib
 set(SWIFT_SOURCES
     src/swift/main.swift
     src/swift/MultiMouseManager.swift
+    src/hipaa/HIPAASecurity.swift
+    src/hipaa/HIPAADataManager.swift
 )
 
 # Create Swift executable

@@ -8,7 +8,8 @@
     "input",
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "downloads"
   ],
   
   "host_permissions": [
