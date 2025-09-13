@@ -5,6 +5,7 @@ A sophisticated cross-platform application that enables multiple mice to control
 ## 🎯 Features
 
 - **Multi-Mouse Support**: Connect and use multiple mice simultaneously
+- **Multi-Display Support**: Seamless cursor movement across multiple monitors and displays
 - **Individual Mouse Coordinates**: Track each mouse's position separately
 - **Dual Control Modes**: Switch between fused triangulation and individual mouse control
 - **Enhanced Triangulation**: Weighted averaging, activity tracking, and smoothing

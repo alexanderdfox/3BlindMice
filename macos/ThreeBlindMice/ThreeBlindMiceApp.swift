@@ -496,52 +496,7 @@ struct ControlButtonsView: View {
                 .cornerRadius(8)
             }
             
-            HStack(spacing: 10) {
-                Button(action: {
-                    appDelegate.multiMouseManager?.printIndividualPositions()
-                }) {
-                    HStack {
-                        Image(systemName: "list.bullet")
-                        Text("Print Positions")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                }
-                .disabled(!appDelegate.isActive)
-                
-                Button(action: {
-                    appDelegate.multiMouseManager?.printActiveMouse()
-                }) {
-                    HStack {
-                        Image(systemName: "target")
-                        Text("Print Active")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.green)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                }
-                .disabled(!appDelegate.isActive)
-            }
             
-            Button(action: {
-                appDelegate.multiMouseManager?.printDetailedMouseInfo()
-            }) {
-                HStack {
-                    Image(systemName: "info.circle")
-                    Text("Print All Info")
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.indigo)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            }
-            .disabled(!appDelegate.isActive)
             
             Button(action: {
                 appDelegate.quitApp()
@@ -872,7 +827,7 @@ class MultiMouseManager: ObservableObject {
     private var isRunning = false
     private var lastUpdateTime = Date()
     private var smoothingFactor: Double = 0.7 // Smoothing factor for position updates
-    @Published var useIndividualMode = false // Toggle between individual and fused modes
+    @Published var useIndividualMode = true // Toggle between individual and fused modes
     @Published var activeMouse: IOHIDDevice? // Currently active mouse in individual mode
     
     // Custom cursor cache

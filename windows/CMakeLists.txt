@@ -31,6 +31,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/cpp)
 # C++ source files
 set(CPP_SOURCES
     src/cpp/hid_manager.cpp
+    src/cpp/display_manager.cpp
 )
 
 # Create C++ library
@@ -47,6 +48,7 @@ target_link_libraries(ThreeBlindMiceLib
 set(SWIFT_SOURCES
     src/swift/main.swift
     src/swift/MultiMouseManager.swift
+    src/swift/DisplayManager.swift
     src/hipaa/HIPAASecurity.swift
     src/hipaa/HIPAADataManager.swift
 )

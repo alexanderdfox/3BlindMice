@@ -14,6 +14,10 @@ class MultiMouseManager {
         this.isRunning = false;
         this.mouseCount = 0;
         
+        // Multi-display support
+        this.displays = [];
+        this.primaryDisplay = null;
+        
         // HIPAA compliance features
         this.hipaaEnabled = true;
         this.auditLog = [];
@@ -50,6 +54,9 @@ class MultiMouseManager {
         // Set up keyboard shortcuts
         this.setupKeyboardShortcuts();
         
+        // Initialize display management
+        this.initializeDisplays();
+        
         // Load saved settings
         await this.loadSettings();
     }
@@ -82,6 +89,85 @@ class MultiMouseManager {
                     break;
             }
         });
+    }
+    
+    // Multi-display support methods
+    async initializeDisplays() {
+        try {
+            if (chrome.system && chrome.system.display) {
+                const displays = await chrome.system.display.getInfo();
+                this.displays = displays;
+                this.primaryDisplay = displays.find(d => d.isPrimary) || displays[0];
+                
+                console.log(`🖥️  Detected ${displays.length} display(s)`);
+                displays.forEach((display, index) => {
+                    console.log(`   Display ${index + 1}: ${display.bounds.width}x${display.bounds.height} ${display.isPrimary ? '[PRIMARY]' : ''}`);
+                });
+                
+                // Listen for display changes
+                chrome.system.display.onDisplayChanged.addListener(() => {
+                    this.updateDisplays();
+                });
+            } else {
+                // Fallback for environments without chrome.system.display
+                this.displays = [{
+                    id: 'fallback',
+                    bounds: { left: 0, top: 0, width: 1920, height: 1080 },
+                    isPrimary: true
+                }];
+                this.primaryDisplay = this.displays[0];
+                console.log('🖥️  Using fallback display configuration');
+            }
+        } catch (error) {
+            console.error('Failed to initialize displays:', error);
+            // Use default display as fallback
+            this.displays = [{
+                id: 'default',
+                bounds: { left: 0, top: 0, width: 1920, height: 1080 },
+                isPrimary: true
+            }];
+            this.primaryDisplay = this.displays[0];
+        }
+    }
+    
+    async updateDisplays() {
+        try {
+            if (chrome.system && chrome.system.display) {
+                const displays = await chrome.system.display.getInfo();
+                this.displays = displays;
+                this.primaryDisplay = displays.find(d => d.isPrimary) || displays[0];
+                console.log(`🖥️  Updated displays: ${displays.length} found`);
+            }
+        } catch (error) {
+            console.error('Failed to update displays:', error);
+        }
+    }
+    
+    getDisplayAt(x, y) {
+        for (const display of this.displays) {
+            const bounds = display.bounds;
+            if (x >= bounds.left && x < bounds.left + bounds.width &&
+                y >= bounds.top && y < bounds.top + bounds.height) {
+                return display;
+            }
+        }
+        return this.primaryDisplay || this.displays[0];
+    }
+    
+    clampToDisplayBounds(x, y, display = null) {
+        if (!display) {
+            display = this.getDisplayAt(x, y);
+        }
+        
+        if (!display) {
+            return { x, y };
+        }
+        
+        const bounds = display.bounds;
+        return {
+            x: Math.max(bounds.left, Math.min(x, bounds.left + bounds.width - 1)),
+            y: Math.max(bounds.top, Math.min(y, bounds.top + bounds.height - 1))
+        };
     }
     
     handleInputEvent(event) {
@@ -136,8 +222,9 @@ class MultiMouseManager {
         const newX = currentPos.x + deltaX;
         const newY = currentPos.y + deltaY;
         
-        // Update individual mouse position
-        this.mousePositions.set(deviceId, { x: newX, y: newY });
+        // Update individual mouse position with multi-display clamping
+        const clampedPos = this.clampToDisplayBounds(newX, newY);
+        this.mousePositions.set(deviceId, { x: clampedPos.x, y: clampedPos.y });
         
         // Update mouse weights based on activity
         this.updateMouseWeights();
@@ -209,6 +296,11 @@ class MultiMouseManager {
         
         this.fusedPosition.x = this.fusedPosition.x * (1 - smoothing) + newX * smoothing;
         this.fusedPosition.y = this.fusedPosition.y * (1 - smoothing) + newY * smoothing;
+        
+        // Clamp fused position to display bounds
+        const clampedFusedPos = this.clampToDisplayBounds(this.fusedPosition.x, this.fusedPosition.y);
+        this.fusedPosition.x = clampedFusedPos.x;
+        this.fusedPosition.y = clampedFusedPos.y;
         
         // Move cursor to fused position
         this.setCursorPosition(this.fusedPosition.x, this.fusedPosition.y);

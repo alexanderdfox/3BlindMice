@@ -37,6 +37,7 @@ include_directories(${XTEST_INCLUDE_DIRS})
 # C source files
 set(C_SOURCES
     src/c/evdev_manager.c
+    src/c/display_manager.c
 )
 
 # Create C library
@@ -53,6 +54,7 @@ target_link_libraries(ThreeBlindMiceChromeOSLib
 set(SWIFT_SOURCES
     src/swift/main.swift
     src/swift/MultiMouseManager.swift
+    src/swift/DisplayManager.swift
     src/hipaa/HIPAASecurity.swift
     src/hipaa/HIPAADataManager.swift
 )

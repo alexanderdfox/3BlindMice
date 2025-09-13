@@ -136,14 +136,23 @@ class MultiMouseManager {
         let newX = currentPos.x + Double(delta.x)
         let newY = currentPos.y + Double(delta.y)
         
-        // Get screen bounds (Linux-specific)
-        let screenWidth = getScreenWidth()
-        let screenHeight = getScreenHeight()
-        
-        mousePositions[deviceId] = MousePosition(
-            x: max(0, min(newX, Double(screenWidth) - 1)),
-            y: max(0, min(newY, Double(screenHeight) - 1))
-        )
+        // Use multi-display support for Linux
+        let displayManager = LinuxDisplayManager.shared
+        if let display = displayManager.getDisplayAt(x: Int32(newX), y: Int32(newY)) {
+            let clampedCoords = displayManager.clampToDisplayBounds(x: Int32(newX), y: Int32(newY), display: display)
+            mousePositions[deviceId] = MousePosition(x: Double(clampedCoords.x), y: Double(clampedCoords.y))
+        } else if let primaryDisplay = displayManager.getPrimaryDisplay() {
+            let clampedCoords = displayManager.clampToDisplayBounds(x: Int32(newX), y: Int32(newY), display: primaryDisplay)
+            mousePositions[deviceId] = MousePosition(x: Double(clampedCoords.x), y: Double(clampedCoords.y))
+        } else {
+            // Fallback to legacy single-screen bounds
+            let screenWidth = getScreenWidth()
+            let screenHeight = getScreenHeight()
+            mousePositions[deviceId] = MousePosition(
+                x: max(0, min(newX, Double(screenWidth) - 1)),
+                y: max(0, min(newY, Double(screenHeight) - 1))
+            )
+        }
     }
     
     private func handleIndividualMode(deviceId: UInt32) {
@@ -210,11 +219,23 @@ class MultiMouseManager {
         fusedPosition.x = fusedPosition.x * (1.0 - smoothing) + newX * smoothing
         fusedPosition.y = fusedPosition.y * (1.0 - smoothing) + newY * smoothing
         
-        // Get screen bounds and clamp
-        let screenWidth = getScreenWidth()
-        let screenHeight = getScreenHeight()
-        fusedPosition.x = max(0, min(fusedPosition.x, Double(screenWidth) - 1))
-        fusedPosition.y = max(0, min(fusedPosition.y, Double(screenHeight) - 1))
+        // Use multi-display support for clamping
+        let displayManager = LinuxDisplayManager.shared
+        if let display = displayManager.getDisplayAt(x: Int32(fusedPosition.x), y: Int32(fusedPosition.y)) {
+            let clampedCoords = displayManager.clampToDisplayBounds(x: Int32(fusedPosition.x), y: Int32(fusedPosition.y), display: display)
+            fusedPosition.x = Double(clampedCoords.x)
+            fusedPosition.y = Double(clampedCoords.y)
+        } else if let primaryDisplay = displayManager.getPrimaryDisplay() {
+            let clampedCoords = displayManager.clampToDisplayBounds(x: Int32(fusedPosition.x), y: Int32(fusedPosition.y), display: primaryDisplay)
+            fusedPosition.x = Double(clampedCoords.x)
+            fusedPosition.y = Double(clampedCoords.y)
+        } else {
+            // Fallback to legacy single-screen bounds
+            let screenWidth = getScreenWidth()
+            let screenHeight = getScreenHeight()
+            fusedPosition.x = max(0, min(fusedPosition.x, Double(screenWidth) - 1))
+            fusedPosition.y = max(0, min(fusedPosition.y, Double(screenHeight) - 1))
+        }
         
         // Clear deltas after processing
         for key in mouseDeltas.keys {
