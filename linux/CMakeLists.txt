@@ -55,35 +55,15 @@ target_link_libraries(ThreeBlindMiceLib
     ${EVDEV_LIB}
 )
 
-# Swift source files
-set(SWIFT_SOURCES
-    src/swift/main.swift
-    src/swift/MultiMouseManager.swift
-    src/swift/DisplayManager.swift
-    src/hipaa/HIPAASecurity.swift
-    src/hipaa/HIPAADataManager.swift
-)
+# Note: Swift compilation is handled by the build script
+# CMake only builds the C library components
 
-# Create Swift executable
-add_executable(ThreeBlindMice ${SWIFT_SOURCES})
-
-# Link with C library
-target_link_libraries(ThreeBlindMice ThreeBlindMiceLib)
-
-# Set output directory
-set_target_properties(ThreeBlindMice PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-)
-
-# Installation
-install(TARGETS ThreeBlindMice
-    RUNTIME DESTINATION bin
-)
-
-# Install udev rules
-install(FILES udev/99-threeblindmice.rules
-    DESTINATION /etc/udev/rules.d/
-)
+# Install udev rules (if they exist)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/udev/99-threeblindmice.rules)
+    install(FILES udev/99-threeblindmice.rules
+        DESTINATION /etc/udev/rules.d/
+    )
+endif()
 
 # Print build information
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
