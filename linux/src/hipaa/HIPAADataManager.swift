@@ -363,8 +363,8 @@ struct DataMetadata {
 }
 
 enum DataClassification {
-    case public
-    case internal
+    case `public`
+    case `internal`
     case confidential
     case restricted // PHI
 }

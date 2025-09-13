@@ -21,15 +21,21 @@ A sophisticated cross-platform application that enables multiple mice to control
 
 ```
 3BlindMice/
-├── src/
-│   ├── cli/                    # Command-line interface (macOS)
-│   │   ├── 3blindmice.swift   # Main CLI version
-│   │   └── 3blindmice_with_permissions.swift
-│   ├── gui/                    # Graphical interface (macOS Xcode project)
-│   │   └── ThreeBlindMice/     # SwiftUI application
-│   └── hipaa/                  # HIPAA compliance modules
-│       ├── HIPAASecurity.swift
-│       └── HIPAADataManager.swift
+├── macos/                      # macOS implementation
+│   ├── src/
+│   │   ├── cli/                # Command-line interface
+│   │   │   ├── 3blindmice.swift
+│   │   │   └── 3blindmice_with_permissions.swift
+│   │   ├── gui/                # Graphical interface (Xcode project)
+│   │   │   └── ThreeBlindMice/ # SwiftUI application
+│   │   └── hipaa/              # HIPAA compliance modules
+│   │       ├── HIPAASecurity.swift
+│   │       └── HIPAADataManager.swift
+│   ├── ThreeBlindMice/         # SwiftUI GUI application
+│   ├── ThreeBlindMice.xcodeproj/ # Xcode project
+│   ├── ThreeBlindMice.xcworkspace/ # Xcode workspace
+│   ├── Package.swift           # Swift Package Manager
+│   └── scripts/                # Build and utility scripts
 ├── windows/                    # Windows implementation
 │   ├── src/
 │   │   ├── swift/             # Swift source code
@@ -61,7 +67,7 @@ A sophisticated cross-platform application that enables multiple mice to control
 │   ├── build.sh               # Build script (Crostini)
 │   ├── run.sh                 # Run script (Crostini)
 │   └── package.sh             # Package extension
-├── scripts/                   # Build and utility scripts (macOS)
+├── macos/scripts/             # macOS build and utility scripts
 │   ├── build_and_run.sh      # Build and launch GUI version
 │   ├── run_release.sh         # Launch existing release build
 │   ├── test_permissions.sh    # Check app permissions
@@ -88,23 +94,33 @@ A sophisticated cross-platform application that enables multiple mice to control
 
 ## 🚀 Quick Start
 
-### macOS (Original)
+### macOS
 
 #### GUI Version (Recommended)
-1. **Build and Run**:
+1. **Navigate to macOS directory**:
+   ```bash
+   cd macos/
+   ```
+
+2. **Build and Run**:
    ```bash
    ./scripts/build_and_run.sh
    ```
 
-2. **Or Launch Existing Build**:
+3. **Or Launch Existing Build**:
    ```bash
    ./scripts/run_release.sh
    ```
 
-3. **Look for the 🐭 icon** in your menu bar and click it to control the application.
+4. **Look for the 🐭 icon** in your menu bar and click it to control the application.
 
 #### CLI Version
-1. **Build and Run**:
+1. **Navigate to macOS directory**:
+   ```bash
+   cd macos/
+   ```
+
+2. **Build and Run**:
    ```bash
    ./scripts/build.sh
    ```

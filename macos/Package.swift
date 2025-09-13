@@ -17,8 +17,8 @@ let package = Package(
         .executableTarget(
             name: "ThreeBlindMice",
             dependencies: [],
-            path: ".",
-            sources: ["3BlindMiceApp.swift"]
+            path: "src/cli",
+            sources: ["3blindmice.swift"]
         )
     ]
 )
