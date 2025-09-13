@@ -45,8 +45,8 @@ public class LinuxDisplayManager {
             display_manager_get_display_info(i, &info)
             
             let display = LinuxDisplayInfo(
-                id: String(cString: info.id),
-                name: String(cString: info.name),
+                id: String(cString: &info.id.0),
+                name: String(cString: &info.name.0),
                 x: info.x,
                 y: info.y,
                 width: info.width,
@@ -66,8 +66,8 @@ public class LinuxDisplayManager {
         display_manager_get_primary_display_info(&info)
         
         return LinuxDisplayInfo(
-            id: String(cString: info.id),
-            name: String(cString: info.name),
+            id: String(cString: &info.id.0),
+            name: String(cString: &info.name.0),
             x: info.x,
             y: info.y,
             width: info.width,
@@ -82,8 +82,8 @@ public class LinuxDisplayManager {
         var info = DisplayInfo()
         if display_manager_get_display_at(x, y, &info) != 0 {
             return LinuxDisplayInfo(
-                id: String(cString: info.id),
-                name: String(cString: info.name),
+                id: String(cString: &info.id.0),
+                name: String(cString: &info.name.0),
                 x: info.x,
                 y: info.y,
                 width: info.width,

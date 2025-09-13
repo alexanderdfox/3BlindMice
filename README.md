@@ -266,6 +266,48 @@ A sophisticated cross-platform application that enables multiple mice to control
    ./build.sh    # For Crostini native app
    ```
 
+## 🔧 Troubleshooting
+
+### CMake Version Issues (Debian/Ubuntu)
+
+If you encounter the error "CMake 3.20 or higher is required. You are running version 3.18.4":
+
+**Option 1: Quick Fix**
+```bash
+# Run the CMake upgrade helper
+./scripts/upgrade_cmake_debian.sh
+```
+
+**Option 2: Manual Upgrade**
+```bash
+# Update package lists
+sudo apt update
+
+# Install latest CMake from official repositories
+sudo apt install cmake
+
+# If still outdated, add Kitware repository
+wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null
+echo "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+sudo apt update
+sudo apt install cmake
+```
+
+**Option 3: Build Fallback**
+The build script automatically falls back to direct Swift compilation if CMake fails, so the build should still succeed even with older CMake versions.
+
+### Permission Issues
+
+**macOS**: Grant "Input Monitoring" permission in System Preferences > Security & Privacy > Privacy > Input Monitoring
+
+**Linux**: Add your user to the `input` group:
+```bash
+sudo usermod -a -G input $USER
+# Log out and back in for changes to take effect
+```
+
+**Windows**: Run as Administrator or grant HID device access permissions
+
 ## 🎮 Usage
 
 ### macOS GUI Version
