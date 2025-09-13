@@ -296,6 +296,29 @@ sudo apt install cmake
 **Option 3: Build Fallback**
 The build script automatically falls back to direct Swift compilation if CMake fails, so the build should still succeed even with older CMake versions.
 
+### Swift Toolchain Compatibility Issues
+
+If you encounter errors like "GLIBC_2.36 not found" or "GLIBCXX_3.4.30 not found":
+
+**Problem**: Swift toolchain's clang++ requires newer glibc than your Debian system provides.
+
+**Solution**: The build script now automatically uses system compilers (gcc/g++) instead of Swift toolchain compilers.
+
+**Quick Fix**:
+```bash
+# Install all dependencies automatically
+./scripts/install_debian_deps.sh
+```
+
+**Manual Fix**:
+```bash
+# Ensure system compilers are installed
+sudo apt install build-essential
+
+# Force CMake to use system compilers
+cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
+```
+
 ### Permission Issues
 
 **macOS**: Grant "Input Monitoring" permission in System Preferences > Security & Privacy > Privacy > Input Monitoring
