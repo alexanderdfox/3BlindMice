@@ -36,7 +36,7 @@ class HIPAASecurityManager {
         
         // Validate MFA if required
         if credentials.requiresMFA {
-            guard validateMFA(credentials.mfaToken) else {
+            guard let mfaToken = credentials.mfaToken, validateMFA(mfaToken) else {
                 auditLogger.logAuthenticationFailure(userId: credentials.userId, reason: "MFA validation failed")
                 return AuthenticationResult(success: false, error: "MFA validation failed")
             }
