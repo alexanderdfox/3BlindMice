@@ -1017,7 +1017,11 @@ class MultiMouseManager: ObservableObject {
                     mouseWeights[device] = 1.0
                 }
                 if mousePositions[device] == nil {
-                    mousePositions[device] = CGPoint(x: 500, y: 500) // Default starting position
+                    // Start each new mouse at the center of the screen
+                    let screenFrame = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
+                    let centerX = screenFrame.width / 2
+                    let centerY = screenFrame.height / 2
+                    mousePositions[device] = CGPoint(x: centerX, y: centerY)
                 }
                 
                 var delta = mouseDeltas[device] ?? (0, 0)

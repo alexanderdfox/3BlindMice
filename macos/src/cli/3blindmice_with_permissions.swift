@@ -8,11 +8,15 @@ class MultiMouseManager {
 	private var mouseDeltas: [IOHIDDevice: (x: Int, y: Int)] = [:]
 	private var mouseWeights: [IOHIDDevice: Double] = [:]
 	private var mouseActivity: [IOHIDDevice: Date] = [:]
-	private var fusedPosition = CGPoint(x: 500, y: 500)
+	private var fusedPosition = CGPoint(x: 0, y: 0) // Will be initialized to screen center
 	private var lastUpdateTime = Date()
 	private var smoothingFactor: Double = 0.7
 
 	init() {
+		// Initialize fused position to screen center
+		let screenFrame = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
+		fusedPosition = CGPoint(x: screenFrame.width / 2, y: screenFrame.height / 2)
+		
 		print("🐭 Enhanced Multi-Mouse Triangulation System")
 		print("=============================================")
 		print("Features: Weighted averaging, activity tracking, smoothing")

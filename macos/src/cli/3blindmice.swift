@@ -9,13 +9,17 @@ class MultiMouseManager {
 	private var mousePositions: [IOHIDDevice: CGPoint] = [:] // Individual mouse positions
 	private var mouseWeights: [IOHIDDevice: Double] = [:]
 	private var mouseActivity: [IOHIDDevice: Date] = [:]
-	private var fusedPosition = CGPoint(x: 500, y: 500)
+	private var fusedPosition = CGPoint(x: 0, y: 0) // Will be initialized to screen center
 	private var lastUpdateTime = Date()
 	private var smoothingFactor: Double = 0.7
 	private var useIndividualMode = false // Toggle between individual and fused modes
 	private var activeMouse: IOHIDDevice? // Currently active mouse in individual mode
 
 	init() {
+		// Initialize fused position to screen center
+		let screenFrame = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
+		fusedPosition = CGPoint(x: screenFrame.width / 2, y: screenFrame.height / 2)
+		
 		hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
 
 		let matchingDict: [String: Any] = [
@@ -74,8 +78,12 @@ class MultiMouseManager {
 				if mouseWeights[device] == nil {
 					mouseWeights[device] = 1.0
 				}
-				if mousePositions[device] == nil {
-					mousePositions[device] = CGPoint(x: 500, y: 500) // Default starting position
+			if mousePositions[device] == nil {
+				// Start each new mouse at the center of the screen
+				let screenFrame = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
+				let centerX = screenFrame.width / 2
+				let centerY = screenFrame.height / 2
+				mousePositions[device] = CGPoint(x: centerX, y: centerY)
 				}
 
 				var delta = mouseDeltas[device] ?? (0, 0)
