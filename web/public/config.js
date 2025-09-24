@@ -18,10 +18,12 @@
 	const fromStorage = (function(){ try { return localStorage.getItem('SOCKET_IO_URL'); } catch(e){ return null; } })();
 	// Auto localhost default (no TLS)
 	const autoLocal = (isLocalHost() || window.location.protocol === 'file:') ? 'http://127.0.0.1:3000' : null;
-	// Remote default (behind Cloudflare/hosted)
-	const hardcoded = 'https://socket.tchoff.com';
+	// Prefer current origin to avoid mixed-content issues when served over HTTPS
 	const fallback = window.location.origin;
-	const chosen = fromParam || fromStorage || autoLocal || hardcoded || fallback;
+	// Local hardcoded default for development
+	const hardcoded = 'http://127.0.0.1:3000';
+	// Choose in order of preference
+	const chosen = fromParam || fromStorage || autoLocal || fallback || hardcoded;
 
 	// Local-only mode (no server). Enable with ?local=1 or localStorage.LOCAL_MODE="1"
 	const localParam = getParam('local');

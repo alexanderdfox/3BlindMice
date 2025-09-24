@@ -27,6 +27,8 @@ class App {
     
     async init() {
         console.log('🐭 3 Blind Mice Web App Starting...');
+        console.log('⚙️ Server URL:', this.config.serverUrl);
+        console.log('⚙️ Local mode:', this.config.localMode);
         
         // Initialize UI Manager
         this.uiManager = new UIManager();
@@ -60,6 +62,11 @@ class App {
             return;
         }
         
+        // Ensure Socket.IO client is available
+        if (window.__ensureSocketIoClient) {
+            try { await window.__ensureSocketIoClient(); } catch(e) {}
+        }
+        
         // Connect to server
         await this.connectToServer();
         
@@ -69,21 +76,25 @@ class App {
     
     async connectToServer() {
         try {
-            console.log('🔌 Connecting to server...');
-            this.uiManager.showLoading();
+            if (typeof io === 'undefined') {
+                throw new Error('Socket.IO client not loaded');
+            }
+            const url = this.config.serverUrl;
+            console.log('🔌 Connecting to', url);
+            // Explicit path and transport fallbacks
+            this.socket = io(url, {
+                path: '/socket.io',
+                transports: ['websocket', 'polling'],
+                withCredentials: false,
+                reconnectionAttempts: this.config.reconnectAttempts,
+                reconnectionDelay: this.config.reconnectDelay
+            });
             
-            // Initialize socket connection
-            this.socket = io(this.config.serverUrl);
-            
-            // Update mouse tracker with socket
             this.mouseTracker.socket = this.socket;
-            
-            // Setup socket event listeners
             this.setupSocketListeners();
-            
         } catch (error) {
             console.error('❌ Failed to connect to server:', error);
-            this.uiManager.showNotification('Failed to connect to server', 'error');
+            this.uiManager.showNotification('Failed to connect. Check server URL and CORS.', 'error');
             this.uiManager.updateConnectionStatus(false);
         }
     }
@@ -265,11 +276,16 @@ class App {
     }
 }
 
-// Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize app when DOM is ready (handles late script injection)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('🚀 Initializing 3 Blind Mice Web App...');
+        window.app = new App();
+    });
+} else {
     console.log('🚀 Initializing 3 Blind Mice Web App...');
     window.app = new App();
-});
+}
 
 // Handle page unload
 window.addEventListener('beforeunload', () => {

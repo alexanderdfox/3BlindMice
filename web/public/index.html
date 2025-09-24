@@ -45,6 +45,10 @@
                     <span class="label">Mode:</span>
                     <span class="value" id="currentMode">-</span>
                 </div>
+                <div class="info-item">
+                    <span class="label">Server URL:</span>
+                    <span class="value" id="serverUrlDisplay">-</span>
+                </div>
             </div>
         </div>
 
@@ -152,10 +156,20 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" integrity="sha384-TS2K6cW5nV2sJk3t6pWn10P9i2nY2n0R3oYc4oY2mM6s7+1a8cKQZ2nXq9Jp0n9J" crossorigin="anonymous"></script>
+    <script src="socket-loader.js"></script>
     <script src="mouse-tracker.js"></script>
     <script src="ui-manager.js"></script>
     <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script>
+    (async function(){
+        try {
+            await window.__ensureSocketIoClient();
+        } catch(e) {}
+        var s = document.createElement('script');
+        s.src = 'app.js';
+        s.defer = true;
+        document.body.appendChild(s);
+    })();
+    </script>
 </body>
 </html>

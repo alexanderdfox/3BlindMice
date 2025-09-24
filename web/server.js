@@ -20,7 +20,8 @@ const io = socketIo(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
-    }
+    },
+    path: '/socket.io'
 });
 
 // Middleware
@@ -28,18 +29,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-        // Store connected clients and their mouse data
-        const clients = new Map();
-        const mouseData = new Map();
-        const mouseWeights = new Map();
-        const mouseActivity = new Map();
-        const mousePositions = new Map();
-        const mouseRotations = new Map(); // Mouse rotation tracking
+// Store connected clients and their mouse data
+const clients = new Map();
+const mouseData = new Map();
+const mouseWeights = new Map();
+const mouseActivity = new Map();
+const mousePositions = new Map();
+const mouseRotations = new Map(); // Mouse rotation tracking
 
 // Configuration
 const config = {
     port: process.env.PORT || 3000,
-    maxClients: 10,
+    maxClients: 50,
     activityTimeout: 2000, // 2 seconds
     smoothingFactor: 0.7,
     enableHostCursorControl: !!robot
@@ -49,6 +50,7 @@ const config = {
 let hostCursorPosition = { x: 960, y: 540 }; // Start at screen center
 let useIndividualMode = false;
 let activeMouseId = null;
+let currentHostId = null;
 
 console.log('🐭 3 Blind Mice Web Server Starting...');
 console.log(`📡 Port: ${config.port}`);
@@ -66,7 +68,8 @@ app.get('/api/status', (req, res) => {
         activeMice: mouseData.size,
         mode: useIndividualMode ? 'individual' : 'fused',
         hostCursorControl: config.enableHostCursorControl,
-        serverTime: new Date().toISOString()
+        serverTime: new Date().toISOString(),
+        hostId: currentHostId
     });
 });
 
@@ -77,6 +80,7 @@ app.get('/api/mice', (req, res) => {
         position: mousePositions.get(id) || { x: 0, y: 0 },
         weight: mouseWeights.get(id) || 1.0,
         lastActivity: mouseActivity.get(id) || null,
+        rotation: mouseRotations.get(id) || 0.0,
         isActive: id === activeMouseId
     }));
     
@@ -84,30 +88,40 @@ app.get('/api/mice', (req, res) => {
         mice,
         hostPosition: hostCursorPosition,
         mode: useIndividualMode ? 'individual' : 'fused',
-        activeMouse: activeMouseId
+        activeMouse: activeMouseId,
+        hostId: currentHostId
     });
 });
+
+function broadcastClientList() {
+    const list = Array.from(clients.values()).map(c => ({ id: c.id, isHost: c.isHost, connectedAt: c.connectedAt }));
+    io.emit('clients', { clients: list, hostId: currentHostId });
+}
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     const clientId = uuidv4();
+    const remote = socket.handshake.address || (socket.request && socket.request.socket && socket.request.socket.remoteAddress) || 'unknown';
     const clientInfo = {
         id: clientId,
         socket: socket,
         connectedAt: new Date(),
         lastActivity: new Date(),
-        isHost: false
+        isHost: false,
+        remote
     };
     
-    console.log(`🔌 Client connected: ${clientId}`);
+    console.log(`🔌 Client connected: ${clientId} from ${remote}`);
     
-    // Check if this is the first client (host)
-    if (clients.size === 0) {
+    // Designate a host if none exists
+    if (!currentHostId) {
         clientInfo.isHost = true;
+        currentHostId = clientId;
         console.log(`👑 Client ${clientId} designated as host`);
     }
     
     clients.set(clientId, clientInfo);
+    broadcastClientList();
     
     // Send initial configuration
     socket.emit('config', {
@@ -115,7 +129,8 @@ io.on('connection', (socket) => {
         isHost: clientInfo.isHost,
         mode: useIndividualMode ? 'individual' : 'fused',
         hostCursorControl: config.enableHostCursorControl,
-        maxClients: config.maxClients
+        maxClients: config.maxClients,
+        hostId: currentHostId
     });
     
     // Send current mouse data
@@ -125,11 +140,28 @@ io.on('connection', (socket) => {
             position: mousePositions.get(id) || { x: 0, y: 0 },
             weight: mouseWeights.get(id) || 1.0,
             lastActivity: mouseActivity.get(id) || null,
+            rotation: mouseRotations.get(id) || 0.0,
             isActive: id === activeMouseId
         })),
         hostPosition: hostCursorPosition,
         mode: useIndividualMode ? 'individual' : 'fused',
-        activeMouse: activeMouseId
+        activeMouse: activeMouseId,
+        hostId: currentHostId
+    });
+    
+    // Client requests to become host
+    socket.on('requestHost', () => {
+        const info = clients.get(clientId);
+        if (!info) return;
+        // Revoke previous host
+        if (currentHostId && clients.has(currentHostId)) {
+            clients.get(currentHostId).isHost = false;
+        }
+        info.isHost = true;
+        currentHostId = clientId;
+        console.log(`👑 New host selected: ${clientId}`);
+        io.emit('hostChanged', { hostId: currentHostId });
+        broadcastClientList();
     });
     
     // Handle mouse movement
@@ -167,13 +199,10 @@ io.on('connection', (socket) => {
     
     // Handle mode toggle (only host can toggle)
     socket.on('toggleMode', () => {
-        if (clientInfo.isHost) {
+        if (clientId === currentHostId) {
             useIndividualMode = !useIndividualMode;
             activeMouseId = useIndividualMode ? null : activeMouseId;
-            
             console.log(`🔄 Mode switched to: ${useIndividualMode ? 'Individual' : 'Fused'}`);
-            
-            // Broadcast mode change
             io.emit('modeChanged', {
                 mode: useIndividualMode ? 'individual' : 'fused',
                 activeMouse: activeMouseId
@@ -183,10 +212,9 @@ io.on('connection', (socket) => {
     
     // Handle host cursor control
     socket.on('hostCursorMove', (data) => {
-        if (clientInfo.isHost && config.enableHostCursorControl && robot) {
+        if (clientId === currentHostId && config.enableHostCursorControl && robot) {
             const { x, y } = data;
             hostCursorPosition = { x, y };
-            
             try {
                 robot.moveMouse(x, y);
                 console.log(`🎯 Host cursor moved to: (${x}, ${y})`);
@@ -198,33 +226,20 @@ io.on('connection', (socket) => {
     
     // Handle scroll wheel input for cursor rotation
     socket.on('scrollInput', (data) => {
-        const { scrollDelta, rotation, timestamp } = data;
+        const { rotation } = data;
         const currentTime = new Date();
-        
-        // Update client activity
         clientInfo.lastActivity = currentTime;
-        
-        // Update mouse rotation
         mouseRotations.set(clientId, rotation || 0);
-        
-        console.log(`🔄 Mouse rotation: ${Math.round(rotation)}°`);
-        
-        // Broadcast updated data to all clients
         broadcastMouseUpdate();
     });
     
     // Handle mouse click events
     socket.on('mouseClick', (data) => {
-        if (clientInfo.isHost && config.enableHostCursorControl && robot) {
+        if (clientId === currentHostId && config.enableHostCursorControl && robot) {
             const { button, doubleClick } = data;
-            
             try {
-                if (doubleClick) {
-                    robot.mouseClick(button, true);
-                } else {
-                    robot.mouseClick(button);
-                }
-                console.log(`🖱️  Host mouse ${button} click`);
+                robot.mouseClick(button, !!doubleClick);
+                console.log(`🖱️  Host mouse ${button} ${doubleClick ? 'double ' : ''}click`);
             } catch (error) {
                 console.error('❌ Error with mouse click:', error);
             }
@@ -241,23 +256,26 @@ io.on('connection', (socket) => {
         mouseWeights.delete(clientId);
         mouseActivity.delete(clientId);
         mousePositions.delete(clientId);
+        mouseRotations.delete(clientId);
+        
+        // Reassign host if needed
+        if (currentHostId === clientId) {
+            currentHostId = null;
+            const next = Array.from(clients.values())[0];
+            if (next) {
+                next.isHost = true;
+                currentHostId = next.id;
+                console.log(`👑 New host: ${currentHostId}`);
+                io.emit('hostChanged', { hostId: currentHostId });
+            }
+        }
         
         // If this was the active mouse, clear it
         if (activeMouseId === clientId) {
             activeMouseId = null;
         }
         
-        // If this was the host, promote another client
-        if (clientInfo.isHost && clients.size > 0) {
-            const newHost = Array.from(clients.values())[0];
-            newHost.isHost = true;
-            console.log(`👑 New host: ${newHost.id}`);
-            
-            // Notify new host
-            newHost.socket.emit('promotedToHost');
-        }
-        
-        // Broadcast updated data
+        broadcastClientList();
         broadcastMouseUpdate();
     });
 });
@@ -265,10 +283,8 @@ io.on('connection', (socket) => {
 // Mouse weight calculation (similar to Swift version)
 function updateMouseWeights() {
     const currentTime = new Date();
-    
     for (const [clientId, lastActivity] of mouseActivity.entries()) {
         const timeSinceActivity = currentTime - lastActivity;
-        
         // Reduce weight for inactive mice
         if (timeSinceActivity > config.activityTimeout) {
             mouseWeights.set(clientId, Math.max(0.1, (mouseWeights.get(clientId) || 1.0) * 0.9));
@@ -284,8 +300,6 @@ function updateIndividualMousePosition(clientId, deltaX, deltaY) {
     const currentPos = mousePositions.get(clientId) || { x: 960, y: 540 }; // Start at screen center
     const newX = currentPos.x + deltaX;
     const newY = currentPos.y + deltaY;
-    
-    // Clamp to screen bounds (assuming 1920x1080 for now)
     mousePositions.set(clientId, {
         x: Math.max(0, Math.min(newX, 1920 - 1)),
         y: Math.max(0, Math.min(newY, 1080 - 1))
@@ -295,71 +309,42 @@ function updateIndividualMousePosition(clientId, deltaX, deltaY) {
 // Handle individual mode
 function handleIndividualMode(clientId) {
     activeMouseId = clientId;
-    
     if (config.enableHostCursorControl && robot) {
         const position = mousePositions.get(clientId);
         if (position) {
             hostCursorPosition = position;
-            try {
-                robot.moveMouse(position.x, position.y);
-            } catch (error) {
-                console.error('❌ Error moving cursor in individual mode:', error);
-            }
+            try { robot.moveMouse(Math.round(position.x), Math.round(position.y)); } catch (e) {}
         }
     }
-    
     // Clear deltas after processing
     const mouse = mouseData.get(clientId);
     if (mouse) {
-        mouse.deltaX = 0;
-        mouse.deltaY = 0;
+        mouse.deltaX = 0; mouse.deltaY = 0;
     }
 }
 
 // Fuse mouse movements (similar to Swift triangulation)
 function fuseAndMoveCursor() {
     if (mouseData.size === 0) return;
-    
-    // Calculate weighted average of mouse movements
-    let weightedTotalX = 0;
-    let weightedTotalY = 0;
-    let totalWeight = 0;
-    
+    let weightedTotalX = 0, weightedTotalY = 0, totalWeight = 0;
     for (const [clientId, mouse] of mouseData.entries()) {
         const weight = mouseWeights.get(clientId) || 1.0;
         weightedTotalX += mouse.deltaX * weight;
         weightedTotalY += mouse.deltaY * weight;
         totalWeight += weight;
     }
-    
     if (totalWeight === 0) return;
-    
     const avgX = weightedTotalX / totalWeight;
     const avgY = weightedTotalY / totalWeight;
-    
-    // Update host cursor position with smoothing
     const smoothing = config.smoothingFactor;
     hostCursorPosition.x = hostCursorPosition.x * (1 - smoothing) + (hostCursorPosition.x + avgX) * smoothing;
     hostCursorPosition.y = hostCursorPosition.y * (1 - smoothing) + (hostCursorPosition.y + avgY) * smoothing;
-    
-    // Clamp to screen bounds
     hostCursorPosition.x = Math.max(0, Math.min(hostCursorPosition.x, 1920 - 1));
     hostCursorPosition.y = Math.max(0, Math.min(hostCursorPosition.y, 1080 - 1));
-    
-    // Move host cursor if enabled
     if (config.enableHostCursorControl && robot) {
-        try {
-            robot.moveMouse(Math.round(hostCursorPosition.x), Math.round(hostCursorPosition.y));
-        } catch (error) {
-            console.error('❌ Error moving cursor in fused mode:', error);
-        }
+        try { robot.moveMouse(Math.round(hostCursorPosition.x), Math.round(hostCursorPosition.y)); } catch (e) {}
     }
-    
-    // Clear deltas after processing
-    for (const mouse of mouseData.values()) {
-        mouse.deltaX = 0;
-        mouse.deltaY = 0;
-    }
+    for (const mouse of mouseData.values()) { mouse.deltaX = 0; mouse.deltaY = 0; }
 }
 
 // Broadcast mouse data to all clients
@@ -372,17 +357,17 @@ function broadcastMouseUpdate() {
         rotation: mouseRotations.get(id) || 0.0,
         isActive: id === activeMouseId
     }));
-    
     io.emit('mouseUpdate', {
         mice,
         hostPosition: hostCursorPosition,
         mode: useIndividualMode ? 'individual' : 'fused',
-        activeMouse: activeMouseId
+        activeMouse: activeMouseId,
+        hostId: currentHostId
     });
 }
 
 // Start server
-server.listen(config.port, () => {
+server.listen(config.port, '0.0.0.0', () => {
     console.log(`🚀 3 Blind Mice Web Server running on port ${config.port}`);
     console.log(`🌐 Open http://localhost:${config.port} to connect clients`);
     console.log(`📊 API available at http://localhost:${config.port}/api/status`);

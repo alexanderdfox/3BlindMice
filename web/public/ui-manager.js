@@ -22,7 +22,8 @@ class UIManager {
             mouseArea: document.getElementById('mouseArea'),
             mouseCanvas: document.getElementById('mouseCanvas'),
             canvasOverlay: document.querySelector('.canvas-overlay'),
-            cameraGrid: document.getElementById('cameraGrid')
+            cameraGrid: document.getElementById('cameraGrid'),
+            serverUrlDisplay: document.getElementById('serverUrlDisplay')
         };
         
         this.state = {
@@ -39,6 +40,7 @@ class UIManager {
         
         this.setupEventListeners();
         this.setupFullscreenListeners();
+        this.updateServerUrlDisplay();
     }
     
     setupEventListeners() {
@@ -381,8 +383,20 @@ class UIManager {
         return { ...this.state };
     }
     
+    updateServerUrlDisplay() {
+        if (this.elements.serverUrlDisplay) {
+            const url = (window.APP_CONFIG && window.APP_CONFIG.serverUrl) || window.location.origin;
+            this.elements.serverUrlDisplay.textContent = url;
+        }
+    }
+    
     setState(newState) {
         this.state = { ...this.state, ...newState };
+        if (newState.serverUrl) {
+            if (!window.APP_CONFIG) window.APP_CONFIG = {};
+            window.APP_CONFIG.serverUrl = newState.serverUrl;
+            this.updateServerUrlDisplay();
+        }
     }
 
     async showCameras() {
