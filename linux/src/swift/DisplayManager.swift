@@ -104,20 +104,8 @@ public class LinuxDisplayManager {
     
     /// Clamp coordinates to display bounds
     public func clampToDisplayBounds(x: Int32, y: Int32, display: LinuxDisplayInfo) -> (x: Int32, y: Int32) {
-        var clampedX: Int32 = 0
-        var clampedY: Int32 = 0
-        
-        var cInfo = DisplayInfo()
-        strncpy(&cInfo.id.0, display.id, 255)
-        strncpy(&cInfo.name.0, display.name, 255)
-        cInfo.x = display.x
-        cInfo.y = display.y
-        cInfo.width = display.width
-        cInfo.height = display.height
-        cInfo.isPrimary = display.isPrimary
-        cInfo.scaleFactor = display.scaleFactor
-        
-        display_manager_clamp_to_display_bounds(x, y, &cInfo, &clampedX, &clampedY)
+        let clampedX = max(display.x, min(x, display.x + display.width - 1))
+        let clampedY = max(display.y, min(y, display.y + display.height - 1))
         return (clampedX, clampedY)
     }
     
@@ -140,26 +128,26 @@ func display_manager_update_displays() -> Void
 @_silgen_name("display_manager_get_display_count")
 func display_manager_get_display_count() -> Int32
 
-@_silgen_name("display_manager_get_display_info")
-func display_manager_get_display_info(_ index: Int32, _ info: UnsafeMutablePointer<DisplayInfo>) -> Void
+// New C helpers for Swift bridge (string/values buffers)
+@_silgen_name("dm_get_display_info_c")
+func dm_get_display_info_c(_ index: Int32,
+                           _ idOut: UnsafeMutablePointer<CChar>, _ idOutSize: Int32,
+                           _ nameOut: UnsafeMutablePointer<CChar>, _ nameOutSize: Int32,
+                           _ xOut: UnsafeMutablePointer<Int32>, _ yOut: UnsafeMutablePointer<Int32>,
+                           _ wOut: UnsafeMutablePointer<Int32>, _ hOut: UnsafeMutablePointer<Int32>,
+                           _ isPrimaryOut: UnsafeMutablePointer<Bool>, _ scaleOut: UnsafeMutablePointer<Float>)
 
-@_silgen_name("display_manager_get_primary_display_info")
-func display_manager_get_primary_display_info(_ info: UnsafeMutablePointer<DisplayInfo>) -> Void
+@_silgen_name("dm_get_primary_info_c")
+func dm_get_primary_info_c(_ idOut: UnsafeMutablePointer<CChar>, _ idOutSize: Int32,
+                           _ nameOut: UnsafeMutablePointer<CChar>, _ nameOutSize: Int32,
+                           _ xOut: UnsafeMutablePointer<Int32>, _ yOut: UnsafeMutablePointer<Int32>,
+                           _ wOut: UnsafeMutablePointer<Int32>, _ hOut: UnsafeMutablePointer<Int32>,
+                           _ isPrimaryOut: UnsafeMutablePointer<Bool>, _ scaleOut: UnsafeMutablePointer<Float>)
 
-@_silgen_name("display_manager_get_display_at")
-func display_manager_get_display_at(_ x: Int32, _ y: Int32, _ info: UnsafeMutablePointer<DisplayInfo>) -> Int32
-
-@_silgen_name("display_manager_clamp_to_display_bounds")
-func display_manager_clamp_to_display_bounds(_ x: Int32, _ y: Int32, _ display: UnsafePointer<DisplayInfo>, _ clampedX: UnsafeMutablePointer<Int32>, _ clampedY: UnsafeMutablePointer<Int32>) -> Void
-
-// C struct for display info (matches the C header)
-struct DisplayInfo {
-    var id: (Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8) = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    var name: (Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8) = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    var x: Int32 = 0
-    var y: Int32 = 0
-    var width: Int32 = 0
-    var height: Int32 = 0
-    var isPrimary: Bool = false
-    var scaleFactor: Float = 1.0
-}
+@_silgen_name("dm_get_display_at_c")
+func dm_get_display_at_c(_ x: Int32, _ y: Int32,
+                         _ idOut: UnsafeMutablePointer<CChar>, _ idOutSize: Int32,
+                         _ nameOut: UnsafeMutablePointer<CChar>, _ nameOutSize: Int32,
+                         _ xOut: UnsafeMutablePointer<Int32>, _ yOut: UnsafeMutablePointer<Int32>,
+                         _ wOut: UnsafeMutablePointer<Int32>, _ hOut: UnsafeMutablePointer<Int32>,
+                         _ isPrimaryOut: UnsafeMutablePointer<Bool>, _ scaleOut: UnsafeMutablePointer<Float>) -> Int32
