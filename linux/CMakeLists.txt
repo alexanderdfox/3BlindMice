@@ -45,8 +45,14 @@ set(C_SOURCES
     src/c/display_manager.c
 )
 
-# Create C library
-add_library(ThreeBlindMiceLib STATIC ${C_SOURCES})
+# Create C shared library (not a static library)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+add_library(ThreeBlindMiceLib SHARED ${C_SOURCES})
+set_target_properties(ThreeBlindMiceLib PROPERTIES
+    OUTPUT_NAME "threeblindmice"
+    VERSION 1.0.0
+    SOVERSION 1
+)
 
 # Link libraries
 target_link_libraries(ThreeBlindMiceLib
