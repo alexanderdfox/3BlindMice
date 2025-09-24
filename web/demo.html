@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3 Blind Mice - Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+        .demo-area {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            margin: 40px 0;
+            backdrop-filter: blur(10px);
+        }
+        .mouse-canvas {
+            width: 100%;
+            max-width: 600px;
+            height: 400px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            cursor: crosshair;
+        }
+        .instructions {
+            text-align: left;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+        .step {
+            margin: 20px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        .step-number {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        .start-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin: 20px;
+        }
+        .start-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+        .warning {
+            background: rgba(255, 152, 0, 0.2);
+            border-color: rgba(255, 152, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🐭</div>
+        <h1>3 Blind Mice</h1>
+        <div class="subtitle">Web Multi-Mouse Triangulation Demo</div>
+        
+        <div class="demo-area">
+            <h2>Interactive Mouse Tracking</h2>
+            <div class="mouse-canvas" id="demoCanvas">
+                Move your mouse here to see tracking in action!
+            </div>
+            <p>This demonstrates the mouse tracking system used in the full application.</p>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🌐</div>
+                <h3>Multi-Computer</h3>
+                <p>Connect multiple computers to control one shared cursor</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔄</div>
+                <h3>Real-time Sync</h3>
+                <p>WebSocket-based real-time mouse coordination</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎯</div>
+                <h3>Smart Triangulation</h3>
+                <p>Intelligent averaging of multiple mouse inputs</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📱</div>
+                <h3>Mobile Support</h3>
+                <p>Touch support for mobile devices and tablets</p>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>🚀 Quick Start Guide</h3>
+            <div class="step">
+                <div class="step-number">1</div>
+                <div>
+                    <strong>Start the Server</strong><br>
+                    Run <code>./start.sh</code> or <code>npm start</code> in the web directory
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div>
+                    <strong>Open Multiple Devices</strong><br>
+                    Navigate to <code>http://localhost:3000</code> on multiple computers
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div>
+                    <strong>Connect and Control</strong><br>
+                    One computer becomes the "host" - move your mouse to control the shared cursor
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div>
+                    <strong>Toggle Modes</strong><br>
+                    Use 'M' key (host only) to switch between Individual and Fused control modes
+                </div>
+            </div>
+        </div>
+        
+        <div class="status">
+            <h3>✅ Ready to Start</h3>
+            <p>The web server is ready to run. Click the button below to start the full application.</p>
+        </div>
+        
+        <a href="/" class="start-button">🚀 Launch 3 Blind Mice Web</a>
+        
+        <div class="warning">
+            <h3>⚠️ Prerequisites</h3>
+            <p>For full functionality, install <code>robotjs</code> on the host computer:</p>
+            <p><code>npm install robotjs</code></p>
+            <p>This enables actual cursor control on the host computer.</p>
+        </div>
+        
+        <div style="margin-top: 40px; opacity: 0.8;">
+            <p>Built with ❤️ for collaborative computing</p>
+            <p>Part of the 3 Blind Mice project - Multi-mouse triangulation for all platforms</p>
+        </div>
+    </div>
+    
+    <script>
+        // Simple demo mouse tracking
+        const canvas = document.getElementById('demoCanvas');
+        let isTracking = false;
+        let lastPosition = { x: 0, y: 0 };
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isTracking) {
+                isTracking = true;
+                canvas.innerHTML = 'Tracking mouse movement...<br><small>Move around to see the effect!</small>';
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Simple visual feedback
+            canvas.style.background = `radial-gradient(circle at ${x}px ${y}px, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 50%, transparent 100%)`;
+            
+            // Show coordinates
+            canvas.innerHTML = `Mouse Position: (${Math.round(x)}, ${Math.round(y)})<br><small>This is how the web version tracks movement!</small>`;
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            canvas.style.background = 'rgba(255, 255, 255, 0.1)';
+            canvas.innerHTML = 'Move your mouse here to see tracking in action!';
+            isTracking = false;
+        });
+        
+        // Check if server is running
+        fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Server status:', data);
+            })
+            .catch(error => {
+                console.log('Server not running - this is expected for the demo page');
+            });
+    </script>
+</body>
+</html>
