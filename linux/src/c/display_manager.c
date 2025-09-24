@@ -262,19 +262,44 @@ static void cleanup_displays(void) {
 }
 
 static const char* get_output_name(RROutput output) {
+    static char name_buffer[256];
+    name_buffer[0] = '\0';
+    
     if (!g_display) {
         return "Unknown";
     }
     
-    XRROutputInfo* output_info = XRRGetOutputInfo(g_display, DefaultRootWindow(g_display), output);
-    if (!output_info) {
+    Window root = DefaultRootWindow(g_display);
+    XRRScreenResources* resources = NULL;
+    
+    // Prefer Current if available; fallback to GetScreenResources
+#ifdef XrandrServer
+    resources = XRRGetScreenResourcesCurrent(g_display, root);
+#else
+    resources = XRRGetScreenResources(g_display, root);
+#endif
+    if (!resources) {
         return "Unknown";
     }
     
-    const char* name = output_info->name;
-    XRRFreeOutputInfo(output_info);
+    XRROutputInfo* output_info = XRRGetOutputInfo(g_display, resources, output);
+    if (!output_info) {
+        XRRFreeScreenResources(resources);
+        return "Unknown";
+    }
     
-    return name ? name : "Unknown";
+    if (output_info->name && output_info->name[0] != '\0') {
+        strncpy(name_buffer, output_info->name, sizeof(name_buffer) - 1);
+        name_buffer[sizeof(name_buffer) - 1] = '\0';
+    } else {
+        strncpy(name_buffer, "Unknown", sizeof(name_buffer) - 1);
+        name_buffer[sizeof(name_buffer) - 1] = '\0';
+    }
+    
+    XRRFreeOutputInfo(output_info);
+    XRRFreeScreenResources(resources);
+    
+    return name_buffer[0] ? name_buffer : "Unknown";
 }
 
 static float get_output_scale_factor(RROutput output) {
