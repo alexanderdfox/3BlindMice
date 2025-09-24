@@ -338,7 +338,7 @@ struct ControlPanelView: View {
                 ControlButtonsView(appDelegate: appDelegate, showDetailedInfo: $showDetailedInfo, showEmojiSettings: $showEmojiSettings)
                 CursorPositionView(cursorPosition: cursorPosition)
                 
-                if !individualPositions.isEmpty {
+                if !individualPositions.isEmpty && !(appDelegate.multiMouseManager?.physicsEnabled ?? false) {
                     IndividualMousePositionsView(
                         individualPositions: individualPositions,
                         activeMouse: activeMouse,
@@ -348,7 +348,7 @@ struct ControlPanelView: View {
                     )
                 }
                 
-                if showDetailedInfo && !mouseInfo.isEmpty {
+                if showDetailedInfo && !mouseInfo.isEmpty && !(appDelegate.multiMouseManager?.physicsEnabled ?? false) {
                     DetailedMouseInfoView(
                         mouseInfo: mouseInfo,
                         activeMouse: activeMouse,
@@ -870,7 +870,12 @@ class MultiMouseManager: ObservableObject {
     private let physicsDamping: CGFloat = 0.12  // velocity damping
     private let physicsGain: CGFloat = 1.0      // force gain from deltas
     private let maxSpeed: CGFloat = 1500.0      // pixels per second cap
-    @Published var physicsEnabled: Bool = false   // off = classic, on = 3-body physics
+    @Published var physicsEnabled: Bool = false {  // off = classic, on = 3-body physics
+        didSet {
+            // Physics visualization uses the fused cursor; force fused mode when enabled
+            if physicsEnabled { useIndividualMode = false }
+        }
+    }
     
     // MARK: - Initialization
     init() {
@@ -1240,45 +1245,62 @@ class MultiMouseManager: ObservableObject {
         let dt = max(1.0/240.0, currentTime.timeIntervalSince(lastUpdateTime)) // stable small timestep
         let displayManager = DisplayManager.shared
         
-        // Compute classic smoothed next
-        var weightedTotalX: Double = 0
-        var weightedTotalY: Double = 0
-        var totalWeight: Double = 0
-        for (device, delta) in mouseDeltas {
-            let weight = mouseWeights[device] ?? 1.0
-            weightedTotalX += Double(delta.x) * weight
-            weightedTotalY += Double(delta.y) * weight
+        // Compute classic fused target from absolute individual positions (weighted centroid)
+        var weightedSumX: CGFloat = 0
+        var weightedSumY: CGFloat = 0
+        var totalWeight: CGFloat = 0
+        for (device, pos) in mousePositions {
+            let weight = CGFloat(mouseWeights[device] ?? 1.0)
+            weightedSumX += pos.x * weight
+            weightedSumY += pos.y * weight
             totalWeight += weight
         }
         var classicNext = fusedPosition
         if totalWeight > 0 {
-            let avgX = weightedTotalX / totalWeight
-            let avgY = weightedTotalY / totalWeight
-            let smoothing = min(1.0, currentTime.timeIntervalSince(lastUpdateTime) * 60.0)
-            let newX = fusedPosition.x + CGFloat(avgX)
-            let newY = fusedPosition.y + CGFloat(avgY)
-            classicNext.x = fusedPosition.x * (1.0 - smoothing) + newX * smoothing
-            classicNext.y = fusedPosition.y * (1.0 - smoothing) + newY * smoothing
+            let centroidX = weightedSumX / totalWeight
+            let centroidY = weightedSumY / totalWeight
+            let smoothing = min(1.0, currentTime.timeIntervalSince(lastUpdateTime) * 8.0) // gentle smoothing toward centroid
+            classicNext.x = fusedPosition.x * (1.0 - smoothing) + centroidX * smoothing
+            classicNext.y = fusedPosition.y * (1.0 - smoothing) + centroidY * smoothing
         }
         
         if physicsEnabled {
-            // 3-body-inspired physics step
-            var force = CGPoint(x: 0, y: 0)
-            for (device, delta) in mouseDeltas {
+            // 3-body-inspired physics: mice act as attractors, current fusedPosition is the host cursor
+            // Force accumulates from each mouse position ~ weight / dist^2 toward that mouse
+            let G: CGFloat = 0.5 // gravitational constant-like gain (tuned for visible motion)
+            var forceX: CGFloat = 0
+            var forceY: CGFloat = 0
+            for (device, pos) in mousePositions {
+                let dx = pos.x - fusedPosition.x
+                let dy = pos.y - fusedPosition.y
+                let distSq = max(25.0, dx*dx + dy*dy) // avoid huge forces at very small distances
                 let weight = CGFloat(mouseWeights[device] ?? 1.0)
-                force.x += CGFloat(delta.x) * weight * physicsGain
-                force.y += CGFloat(delta.y) * weight * physicsGain
+                let magnitude = G * weight / distSq
+                forceX += magnitude * dx
+                forceY += magnitude * dy
             }
-            fusedVelocity.x = (1.0 - physicsDamping) * fusedVelocity.x + force.x * CGFloat(dt)
-            fusedVelocity.y = (1.0 - physicsDamping) * fusedVelocity.y + force.y * CGFloat(dt)
+            // Integrate with damping and speed cap
+            fusedVelocity.x = (1.0 - physicsDamping) * fusedVelocity.x + forceX * CGFloat(dt)
+            fusedVelocity.y = (1.0 - physicsDamping) * fusedVelocity.y + forceY * CGFloat(dt)
             let speed = sqrt(fusedVelocity.x * fusedVelocity.x + fusedVelocity.y * fusedVelocity.y)
             if speed > maxSpeed {
                 let scale = maxSpeed / speed
                 fusedVelocity.x *= scale
                 fusedVelocity.y *= scale
             }
-            fusedPosition.x = fusedPosition.x + fusedVelocity.x * CGFloat(dt)
-            fusedPosition.y = fusedPosition.y + fusedVelocity.y * CGFloat(dt)
+            fusedPosition.x += fusedVelocity.x * CGFloat(dt)
+            fusedPosition.y += fusedVelocity.y * CGFloat(dt)
+
+            // Safety: if physics force/velocity are too small, gently move toward centroid target
+            let centroidTarget = classicNext
+            let distToCentroidX = centroidTarget.x - fusedPosition.x
+            let distToCentroidY = centroidTarget.y - fusedPosition.y
+            let distToCentroid = sqrt(distToCentroidX*distToCentroidX + distToCentroidY*distToCentroidY)
+            if speed < 0.01 && distToCentroid > 1.0 {
+                let nudgeGain: CGFloat = 0.15
+                fusedPosition.x = fusedPosition.x + distToCentroidX * nudgeGain
+                fusedPosition.y = fusedPosition.y + distToCentroidY * nudgeGain
+            }
         } else {
             fusedPosition = classicNext
         }
