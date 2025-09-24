@@ -1,7 +1,5 @@
 import Foundation
 
-// HIPAA compliance modules are included in the same compilation unit
-
 // Linux-specific mouse position structure
 struct MousePosition {
     var x: Double
@@ -48,28 +46,10 @@ class MultiMouseManager {
         print("🐭 Enhanced Multi-Mouse Triangulation System (Linux)")
         print("===================================================")
         print("Features: Weighted averaging, activity tracking, smoothing")
-        print("🏥 HIPAA Compliant for healthcare environments")
         print("")
-        
-        // Initialize HIPAA compliance features
-        initializeHIPAACompliance()
         
         // Initialize Linux evdev manager
         initializeLinuxEvdevManager()
-    }
-    
-    private func initializeHIPAACompliance() {
-        print("🔒 Initializing HIPAA compliance features...")
-        
-        // HIPAA compliance will be added in future builds
-        print("✅ HIPAA compliance placeholder initialized")
-        
-        print("✅ AES-256 encryption enabled")
-        print("✅ Audit logging enabled")
-        print("✅ Access controls enabled")
-        print("✅ Data minimization enabled")
-        print("✅ Secure disposal enabled")
-        print("")
     }
     
     private func initializeLinuxEvdevManager() {
@@ -102,9 +82,8 @@ class MultiMouseManager {
     func handleInput(deviceId: UInt32, deltaX: Int32, deltaY: Int32) {
         let currentTime = Date()
         
-        // HIPAA-compliant data handling
-        logMouseInput(deviceId: deviceId, deltaX: deltaX, deltaY: deltaY, timestamp: currentTime)
-        
+        // Update audit/logging here if needed
+
         // Update mouse activity timestamp
         mouseActivity[deviceId] = currentTime
         
@@ -383,34 +362,7 @@ class MultiMouseManager {
         print("")
     }
     
-    // MARK: - HIPAA Compliance Methods
-    
-    private func logMouseInput(deviceId: UInt32, deltaX: Int32, deltaY: Int32, timestamp: Date) {
-        // HIPAA-compliant audit logging for mouse input
-        // let securityManager = HIPAASecurityManager.shared
-        
-        // Basic logging for now
-        print("[AUDIT] \(timestamp) | MOUSE_INPUT | Device:\(deviceId) | DeltaX:\(deltaX) | DeltaY:\(deltaY)")
-    }
-    
-    private func encryptMouseData(_ data: Data) -> Data? {
-        // HIPAA-compliant encryption for sensitive mouse data
-        // In a real implementation, this would use AES-256 encryption
-        print("🔒 [HIPAA] Encrypting mouse data (\(data.count) bytes)")
-        return data // Placeholder - would return encrypted data
-    }
-    
-    private func classifyMouseData(_ data: Data) -> String {
-        // HIPAA-compliant data classification
-        // Determine if mouse data contains PHI or is sensitive
-        if data.count > 1000 {
-            return "RESTRICTED" // Potential PHI
-        } else if data.count > 100 {
-            return "CONFIDENTIAL" // Sensitive
-        } else {
-            return "INTERNAL" // Internal use
-        }
-    }
+    // HIPAA-related methods removed for Linux build simplification
     
     // Linux-specific C bridge functions
     private func createLinuxEvdevManager() -> UnsafeMutableRawPointer? {

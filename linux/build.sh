@@ -79,8 +79,6 @@ if [ "$HAS_SWIFT" -eq 1 ]; then
     ../src/swift/main.swift
     ../src/swift/MultiMouseManager.swift
     ../src/swift/DisplayManager.swift
-    ../src/hipaa/HIPAASecurity.swift
-    ../src/hipaa/HIPAADataManager.swift
   )
 
   mkdir -p bin
