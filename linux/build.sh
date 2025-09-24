@@ -72,38 +72,16 @@ fi
 echo ""
 echo "✅ C library built successfully!"
 
-# Build Swift executable if Swift is available
-if [ "$HAS_SWIFT" -eq 1 ]; then
-  echo "📦 Building Swift executable..."
-  SWIFT_SOURCES=(
-    ../src/swift/main.swift
-    ../src/swift/MultiMouseManager.swift
-    ../src/swift/DisplayManager.swift
-  )
-
-  mkdir -p bin
-  # Ensure lib path at runtime
-  export LD_LIBRARY_PATH="${PWD}/bin:${LD_LIBRARY_PATH}"
-
-  swiftc -O \
-    -L"${PWD}/bin" -lthreeblindmice \
-    -Xlinker -rpath -Xlinker '$ORIGIN' \
-    -o bin/ThreeBlindMice "${SWIFT_SOURCES[@]}"
-
-  if [ $? -ne 0 ]; then
-    echo "❌ Swift build failed"
-    exit 1
-  fi
-
-  echo ""
-  echo "✅ Build completed successfully!"
-  echo "📁 Output: build/bin/ThreeBlindMice"
-  echo ""
-  echo "🚀 To run: ./build/bin/ThreeBlindMice"
-  echo ""
-  echo "💡 For proper permissions, run:"
-  echo "   sudo ./install.sh"
-  echo ""
-else
-  echo "ℹ️  Skipped Swift build. Only libthreeblindmice.so was produced in build/bin."
+echo "📦 Building C executable..."
+make ThreeBlindMiceC -j$(nproc)
+if [ $? -ne 0 ]; then
+  echo "❌ C executable build failed"
+  exit 1
 fi
+
+echo ""
+echo "✅ Build completed successfully!"
+echo "📁 Output: build/bin/ThreeBlindMiceC"
+echo ""
+echo "🚀 To run: LD_LIBRARY_PATH=build/bin ./build/bin/ThreeBlindMiceC"
+echo ""

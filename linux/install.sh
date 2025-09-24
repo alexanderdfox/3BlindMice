@@ -10,7 +10,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Check if executable exists
-if [ ! -f "build/bin/ThreeBlindMice" ]; then
+if [ ! -f "build/bin/ThreeBlindMiceC" ]; then
     echo "❌ Executable not found"
     echo "Please run ./build.sh first"
     exit 1
@@ -48,11 +48,11 @@ fi
 echo "📋 Installing executable..."
 
 # Install executable to /usr/local/bin
-cp build/bin/ThreeBlindMice /usr/local/bin/
-chmod +x /usr/local/bin/ThreeBlindMice
+cp build/bin/ThreeBlindMiceC /usr/local/bin/
+chmod +x /usr/local/bin/ThreeBlindMiceC
 
 if [ $? -eq 0 ]; then
-    echo "✅ Executable installed to /usr/local/bin/ThreeBlindMice"
+    echo "✅ Executable installed to /usr/local/bin/ThreeBlindMiceC"
 else
     echo "❌ Failed to install executable"
     exit 1
@@ -63,7 +63,7 @@ echo "✅ Installation completed successfully!"
 echo ""
 echo "📋 Next steps:"
 echo "1. Logout and login again to apply group changes"
-echo "2. Run: ThreeBlindMice"
+echo "2. Run: ThreeBlindMiceC"
 echo ""
-echo "💡 Or run directly: /usr/local/bin/ThreeBlindMice"
+echo "💡 Or run directly: /usr/local/bin/ThreeBlindMiceC"
 echo ""

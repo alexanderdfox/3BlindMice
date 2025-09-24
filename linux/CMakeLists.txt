@@ -45,16 +45,29 @@ set(C_SOURCES
     src/c/display_manager.c
     src/c/gui.c
     src/c/tray.c
+    src/c/main.c
 )
 
 # Create C shared library (not a static library)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-add_library(ThreeBlindMiceLib SHARED ${C_SOURCES})
+add_library(ThreeBlindMiceLib SHARED
+    src/c/evdev_manager.c
+    src/c/display_manager.c
+    src/c/gui.c
+    src/c/tray.c
+)
 set_target_properties(ThreeBlindMiceLib PROPERTIES
     OUTPUT_NAME "threeblindmice"
     VERSION 1.0.0
     SOVERSION 1
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+# Pure C executable for Linux
+add_executable(ThreeBlindMiceC src/c/main.c)
+target_link_libraries(ThreeBlindMiceC PRIVATE ThreeBlindMiceLib ${X11_LIBRARIES} ${XTEST_LIBRARIES} ${EVDEV_LIB})
+set_target_properties(ThreeBlindMiceC PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
 # Link libraries
