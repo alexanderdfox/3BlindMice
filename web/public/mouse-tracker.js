@@ -29,6 +29,7 @@ class MouseTracker {
         this.mouseEmojis = new Map(); // Per-mouse emoji assignment
         this.hostPosition = { x: 400, y: 300 }; // Default center
         this.cursorRotation = 0.0; // Current cursor rotation in degrees
+        this.physicsEnabled = false; // 3-body style fusion toggle (server authoritative)
         
         // Visual settings
         this.visualSettings = {
@@ -43,6 +44,15 @@ class MouseTracker {
         this.setupCanvas();
         this.setupEventListeners();
         this.startRenderLoop();
+    }
+
+    // Toggle physics mode on the server (host only effective)
+    togglePhysics() {
+        try {
+            this.socket?.emit('togglePhysics');
+        } catch (e) {}
+        // Optimistic flip; server will correct via physicsChanged event
+        this.physicsEnabled = !this.physicsEnabled;
     }
     
     // Assign a deterministic emoji per mouseId

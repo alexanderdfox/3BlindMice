@@ -48,9 +48,11 @@ const config = {
 
 // Host computer cursor position
 let hostCursorPosition = { x: 960, y: 540 }; // Start at screen center
+let hostVelocity = { x: 0, y: 0 }; // For physics mode
 let useIndividualMode = false;
 let activeMouseId = null;
 let currentHostId = null;
+let usePhysics = false; // 3-body style fusion toggle
 
 console.log('🐭 3 Blind Mice Web Server Starting...');
 console.log(`📡 Port: ${config.port}`);
@@ -130,7 +132,8 @@ io.on('connection', (socket) => {
         mode: useIndividualMode ? 'individual' : 'fused',
         hostCursorControl: config.enableHostCursorControl,
         maxClients: config.maxClients,
-        hostId: currentHostId
+        hostId: currentHostId,
+        physicsEnabled: usePhysics
     });
     
     // Send current mouse data
@@ -207,6 +210,16 @@ io.on('connection', (socket) => {
                 mode: useIndividualMode ? 'individual' : 'fused',
                 activeMouse: activeMouseId
             });
+        }
+    });
+
+    // Toggle 3-body physics (host only)
+    socket.on('togglePhysics', () => {
+        if (clientId === currentHostId) {
+            usePhysics = !usePhysics;
+            hostVelocity = { x: 0, y: 0 };
+            console.log(`🪐 Physics ${usePhysics ? 'ENABLED' : 'DISABLED'}`);
+            io.emit('physicsChanged', { physicsEnabled: usePhysics });
         }
     });
     
@@ -327,8 +340,8 @@ function handleIndividualMode(clientId) {
 function fuseAndMoveCursor() {
     if (mouseData.size === 0) return;
     let weightedTotalX = 0, weightedTotalY = 0, totalWeight = 0;
-    for (const [clientId, mouse] of mouseData.entries()) {
-        const weight = mouseWeights.get(clientId) || 1.0;
+    for (const [cid, mouse] of mouseData.entries()) {
+        const weight = mouseWeights.get(cid) || 1.0;
         weightedTotalX += mouse.deltaX * weight;
         weightedTotalY += mouse.deltaY * weight;
         totalWeight += weight;
@@ -336,9 +349,28 @@ function fuseAndMoveCursor() {
     if (totalWeight === 0) return;
     const avgX = weightedTotalX / totalWeight;
     const avgY = weightedTotalY / totalWeight;
-    const smoothing = config.smoothingFactor;
-    hostCursorPosition.x = hostCursorPosition.x * (1 - smoothing) + (hostCursorPosition.x + avgX) * smoothing;
-    hostCursorPosition.y = hostCursorPosition.y * (1 - smoothing) + (hostCursorPosition.y + avgY) * smoothing;
+
+    if (usePhysics) {
+        // Simple damped integration (3-body inspired) without explicit dt
+        const damping = 0.12;
+        const gain = 1.0;
+        // Update velocity with damping and force from average deltas
+        hostVelocity.x = (1 - damping) * hostVelocity.x + gain * avgX;
+        hostVelocity.y = (1 - damping) * hostVelocity.y + gain * avgY;
+        // Cap speed
+        const speed = Math.hypot(hostVelocity.x, hostVelocity.y);
+        const maxSpeed = 50; // pixels per tick cap
+        if (speed > maxSpeed) {
+            hostVelocity.x *= maxSpeed / speed;
+            hostVelocity.y *= maxSpeed / speed;
+        }
+        hostCursorPosition.x += hostVelocity.x;
+        hostCursorPosition.y += hostVelocity.y;
+    } else {
+        const smoothing = config.smoothingFactor;
+        hostCursorPosition.x = hostCursorPosition.x * (1 - smoothing) + (hostCursorPosition.x + avgX) * smoothing;
+        hostCursorPosition.y = hostCursorPosition.y * (1 - smoothing) + (hostCursorPosition.y + avgY) * smoothing;
+    }
     hostCursorPosition.x = Math.max(0, Math.min(hostCursorPosition.x, 1920 - 1));
     hostCursorPosition.y = Math.max(0, Math.min(hostCursorPosition.y, 1080 - 1));
     if (config.enableHostCursorControl && robot) {

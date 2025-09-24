@@ -130,6 +130,7 @@ class App {
             console.log('⚙️ Received config:', config);
             this.state.clientId = config.clientId;
             this.state.isHost = config.isHost;
+            if (this.mouseTracker) this.mouseTracker.physicsEnabled = !!config.physicsEnabled;
             
             this.uiManager.updateConnectionStatus(true, config.clientId, config.isHost);
             
@@ -163,6 +164,10 @@ class App {
             this.state.isHost = true;
             this.uiManager.updateConnectionStatus(true, this.state.clientId, true);
             this.uiManager.showNotification('You are now the host computer', 'success');
+        });
+        // Physics changed
+        this.socket.on('physicsChanged', (data) => {
+            if (this.mouseTracker) this.mouseTracker.physicsEnabled = !!data.physicsEnabled;
         });
         
         // Error handling
