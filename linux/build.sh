@@ -87,6 +87,7 @@ if [ "$HAS_SWIFT" -eq 1 ]; then
 
   swiftc -O \
     -L"${PWD}/bin" -lthreeblindmice \
+    -Xlinker -rpath -Xlinker '$ORIGIN' \
     -o bin/ThreeBlindMice "${SWIFT_SOURCES[@]}"
 
   if [ $? -ne 0 ]; then
@@ -98,7 +99,7 @@ if [ "$HAS_SWIFT" -eq 1 ]; then
   echo "✅ Build completed successfully!"
   echo "📁 Output: build/bin/ThreeBlindMice"
   echo ""
-  echo "🚀 To run: LD_LIBRARY_PATH=build/bin ./build/bin/ThreeBlindMice"
+  echo "🚀 To run: ./build/bin/ThreeBlindMice"
   echo ""
   echo "💡 For proper permissions, run:"
   echo "   sudo ./install.sh"
