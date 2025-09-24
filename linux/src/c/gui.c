@@ -3,6 +3,7 @@
 #include <X11/Xutil.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 static Display* s_dpy = NULL;
 static int s_screen = 0;
