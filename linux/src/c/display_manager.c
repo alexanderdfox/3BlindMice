@@ -307,3 +307,60 @@ static float get_output_scale_factor(RROutput output) {
     // In a real implementation, you'd query the actual DPI/scale settings
     return 1.0f;
 }
+
+// C-friendly getters for Swift bridge
+void dm_get_display_info_c(int32_t index,
+                           char* idOut, int idOutSize,
+                           char* nameOut, int nameOutSize,
+                           int32_t* xOut, int32_t* yOut,
+                           int32_t* wOut, int32_t* hOut,
+                           bool* isPrimaryOut, float* scaleOut) {
+    if (index < 0 || index >= g_display_count) return;
+    const DisplayInfo* d = &g_displays[index];
+    if (idOut && idOutSize > 0) { snprintf(idOut, idOutSize, "%s", d->id); }
+    if (nameOut && nameOutSize > 0) { snprintf(nameOut, nameOutSize, "%s", d->name); }
+    if (xOut) *xOut = d->x;
+    if (yOut) *yOut = d->y;
+    if (wOut) *wOut = d->width;
+    if (hOut) *hOut = d->height;
+    if (isPrimaryOut) *isPrimaryOut = d->isPrimary;
+    if (scaleOut) *scaleOut = d->scaleFactor;
+}
+
+void dm_get_primary_info_c(char* idOut, int idOutSize,
+                           char* nameOut, int nameOutSize,
+                           int32_t* xOut, int32_t* yOut,
+                           int32_t* wOut, int32_t* hOut,
+                           bool* isPrimaryOut, float* scaleOut) {
+    if (!g_primary_display) return;
+    const DisplayInfo* d = g_primary_display;
+    if (idOut && idOutSize > 0) { snprintf(idOut, idOutSize, "%s", d->id); }
+    if (nameOut && nameOutSize > 0) { snprintf(nameOut, nameOutSize, "%s", d->name); }
+    if (xOut) *xOut = d->x;
+    if (yOut) *yOut = d->y;
+    if (wOut) *wOut = d->width;
+    if (hOut) *hOut = d->height;
+    if (isPrimaryOut) *isPrimaryOut = d->isPrimary;
+    if (scaleOut) *scaleOut = d->scaleFactor;
+}
+
+int dm_get_display_at_c(int32_t x, int32_t y,
+                        char* idOut, int idOutSize,
+                        char* nameOut, int nameOutSize,
+                        int32_t* xOut, int32_t* yOut,
+                        int32_t* wOut, int32_t* hOut,
+                        bool* isPrimaryOut, float* scaleOut) {
+    DisplayInfo info;
+    if (display_manager_get_display_at(x, y, &info)) {
+        if (idOut && idOutSize > 0) { snprintf(idOut, idOutSize, "%s", info.id); }
+        if (nameOut && nameOutSize > 0) { snprintf(nameOut, nameOutSize, "%s", info.name); }
+        if (xOut) *xOut = info.x;
+        if (yOut) *yOut = info.y;
+        if (wOut) *wOut = info.width;
+        if (hOut) *hOut = info.height;
+        if (isPrimaryOut) *isPrimaryOut = info.isPrimary;
+        if (scaleOut) *scaleOut = info.scaleFactor;
+        return 1;
+    }
+    return 0;
+}

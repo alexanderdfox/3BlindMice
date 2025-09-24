@@ -43,6 +43,27 @@ int gui_init(int width, int height, const char* title);
 void gui_update(double host_x, double host_y);
 void gui_close(void);
 
+// C-friendly getters to avoid struct bridging complexity in Swift
+void dm_get_display_info_c(int32_t index,
+                           char* idOut, int idOutSize,
+                           char* nameOut, int nameOutSize,
+                           int32_t* xOut, int32_t* yOut,
+                           int32_t* wOut, int32_t* hOut,
+                           bool* isPrimaryOut, float* scaleOut);
+
+void dm_get_primary_info_c(char* idOut, int idOutSize,
+                           char* nameOut, int nameOutSize,
+                           int32_t* xOut, int32_t* yOut,
+                           int32_t* wOut, int32_t* hOut,
+                           bool* isPrimaryOut, float* scaleOut);
+
+int dm_get_display_at_c(int32_t x, int32_t y,
+                        char* idOut, int idOutSize,
+                        char* nameOut, int nameOutSize,
+                        int32_t* xOut, int32_t* yOut,
+                        int32_t* wOut, int32_t* hOut,
+                        bool* isPrimaryOut, float* scaleOut);
+
 #ifdef __cplusplus
 }
 #endif

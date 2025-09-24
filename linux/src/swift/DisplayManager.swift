@@ -46,18 +46,18 @@ public class LinuxDisplayManager {
         let count = display_manager_get_display_count()
         
         for i in 0..<count {
-            var info = DisplayInfo()
-            display_manager_get_display_info(i, &info)
-            
+            var idBuf = [CChar](repeating: 0, count: 256)
+            var nameBuf = [CChar](repeating: 0, count: 256)
+            var x:Int32=0, y:Int32=0, w:Int32=0, h:Int32=0
+            var isPrimary: Bool=false
+            var scale: Float=1.0
+            dm_get_display_info_c(i, &idBuf, 256, &nameBuf, 256, &x, &y, &w, &h, &isPrimary, &scale)
             let display = LinuxDisplayInfo(
-                id: stringFrom(&info.id.0),
-                name: stringFrom(&info.name.0),
-                x: info.x,
-                y: info.y,
-                width: info.width,
-                height: info.height,
-                isPrimary: info.isPrimary,
-                scaleFactor: info.scaleFactor
+                id: String(cString: idBuf),
+                name: String(cString: nameBuf),
+                x: x, y: y, width: w, height: h,
+                isPrimary: isPrimary,
+                scaleFactor: scale
             )
             displays.append(display)
         }
@@ -67,34 +67,36 @@ public class LinuxDisplayManager {
     
     /// Get primary display
     public func getPrimaryDisplay() -> LinuxDisplayInfo? {
-        var info = DisplayInfo()
-        display_manager_get_primary_display_info(&info)
+        var idBuf = [CChar](repeating: 0, count: 256)
+        var nameBuf = [CChar](repeating: 0, count: 256)
+        var x:Int32=0, y:Int32=0, w:Int32=0, h:Int32=0
+        var isPrimary: Bool=false
+        var scale: Float=1.0
+        dm_get_primary_info_c(&idBuf, 256, &nameBuf, 256, &x, &y, &w, &h, &isPrimary, &scale)
         
         return LinuxDisplayInfo(
-            id: stringFrom(&info.id.0),
-            name: stringFrom(&info.name.0),
-            x: info.x,
-            y: info.y,
-            width: info.width,
-            height: info.height,
+            id: String(cString: idBuf),
+            name: String(cString: nameBuf),
+            x: x, y: y, width: w, height: h,
             isPrimary: true,
-            scaleFactor: info.scaleFactor
+            scaleFactor: scale
         )
     }
     
     /// Get display at coordinates
     public func getDisplayAt(x: Int32, y: Int32) -> LinuxDisplayInfo? {
-        var info = DisplayInfo()
-        if display_manager_get_display_at(x, y, &info) != 0 {
+        var idBuf = [CChar](repeating: 0, count: 256)
+        var nameBuf = [CChar](repeating: 0, count: 256)
+        var ox:Int32=0, oy:Int32=0, ow:Int32=0, oh:Int32=0
+        var isPrimary: Bool=false
+        var scale: Float=1.0
+        if dm_get_display_at_c(x, y, &idBuf, 256, &nameBuf, 256, &ox, &oy, &ow, &oh, &isPrimary, &scale) != 0 {
             return LinuxDisplayInfo(
-                id: stringFrom(&info.id.0),
-                name: stringFrom(&info.name.0),
-                x: info.x,
-                y: info.y,
-                width: info.width,
-                height: info.height,
-                isPrimary: info.isPrimary,
-                scaleFactor: info.scaleFactor
+                id: String(cString: idBuf),
+                name: String(cString: nameBuf),
+                x: ox, y: oy, width: ow, height: oh,
+                isPrimary: isPrimary,
+                scaleFactor: scale
             )
         }
         return nil
