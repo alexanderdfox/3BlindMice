@@ -27,6 +27,15 @@ public struct LinuxDisplayInfo {
 public class LinuxDisplayManager {
     public static let shared = LinuxDisplayManager()
     
+    // Helper to convert C char[256] tuple to Swift String without using deprecated initializer
+    private func stringFrom(_ tuple: inout (Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8)) -> String {
+        return withUnsafePointer(to: &tuple) { ptr in
+            ptr.withMemoryRebound(to: CChar.self, capacity: 256) { cptr in
+                return String(validatingUTF8: cptr) ?? ""
+            }
+        }
+    }
+    
     private init() {
         display_manager_init()
     }
@@ -45,8 +54,8 @@ public class LinuxDisplayManager {
             display_manager_get_display_info(i, &info)
             
             let display = LinuxDisplayInfo(
-                id: String(cString: &info.id.0),
-                name: String(cString: &info.name.0),
+                id: stringFrom(&info.id),
+                name: stringFrom(&info.name),
                 x: info.x,
                 y: info.y,
                 width: info.width,
@@ -66,8 +75,8 @@ public class LinuxDisplayManager {
         display_manager_get_primary_display_info(&info)
         
         return LinuxDisplayInfo(
-            id: String(cString: &info.id.0),
-            name: String(cString: &info.name.0),
+            id: stringFrom(&info.id),
+            name: stringFrom(&info.name),
             x: info.x,
             y: info.y,
             width: info.width,
@@ -82,8 +91,8 @@ public class LinuxDisplayManager {
         var info = DisplayInfo()
         if display_manager_get_display_at(x, y, &info) != 0 {
             return LinuxDisplayInfo(
-                id: String(cString: &info.id.0),
-                name: String(cString: &info.name.0),
+                id: stringFrom(&info.id),
+                name: stringFrom(&info.name),
                 x: info.x,
                 y: info.y,
                 width: info.width,
