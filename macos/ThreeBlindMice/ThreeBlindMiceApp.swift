@@ -309,12 +309,32 @@ struct ControlPanelView: View {
     @State private var mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint, rotation: Double)] = []
     @State private var showDetailedInfo = false
     @State private var showEmojiSettings = false
+    @State private var physicsBlendValue: Double = 0.0
     
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 HeaderView()
                 StatusView(connectedMice: connectedMice, currentMode: currentMode, isActive: appDelegate.isActive)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(isOn: Binding(get: {
+                        appDelegate.multiMouseManager?.physicsEnabled ?? false
+                    }, set: { v in
+                        appDelegate.multiMouseManager?.physicsEnabled = v
+                    })) {
+                        HStack {
+                            Text("3-Body Mode")
+                            Spacer()
+                            Image(systemName: (appDelegate.multiMouseManager?.physicsEnabled ?? false) ? "circle.fill" : "circle")
+                                .foregroundColor((appDelegate.multiMouseManager?.physicsEnabled ?? false) ? .blue : .gray)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color.gray.opacity(0.08))
+                .cornerRadius(10)
+                
                 ControlButtonsView(appDelegate: appDelegate, showDetailedInfo: $showDetailedInfo, showEmojiSettings: $showEmojiSettings)
                 CursorPositionView(cursorPosition: cursorPosition)
                 
@@ -341,13 +361,13 @@ struct ControlPanelView: View {
                     EmojiSettingsView(emojiManager: appDelegate.emojiManager, connectedDevices: Array(individualPositions.keys))
                 }
                 
-                // Add some bottom padding for better scrolling experience
                 Spacer(minLength: 20)
             }
             .padding()
         }
         .frame(width: 350, height: 600)
         .onAppear {
+            physicsBlendValue = (appDelegate.multiMouseManager?.physicsEnabled ?? false) ? 1.0 : 0.0
             Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
                 updateUI()
             }
@@ -845,6 +865,13 @@ class MultiMouseManager: ObservableObject {
     private var mouseRotations: [IOHIDDevice: Double] = [:]
     private var cursorRotation: Double = 0.0 // Current cursor rotation in degrees
     
+    // 3-body-inspired fusion state
+    private var fusedVelocity = CGPoint(x: 0, y: 0)
+    private let physicsDamping: CGFloat = 0.12  // velocity damping
+    private let physicsGain: CGFloat = 1.0      // force gain from deltas
+    private let maxSpeed: CGFloat = 1500.0      // pixels per second cap
+    @Published var physicsEnabled: Bool = false   // off = classic, on = 3-body physics
+    
     // MARK: - Initialization
     init() {
         setupHIDManager()
@@ -1210,64 +1237,70 @@ class MultiMouseManager: ObservableObject {
         guard count > 0 else { return }
         
         let currentTime = Date()
+        let dt = max(1.0/240.0, currentTime.timeIntervalSince(lastUpdateTime)) // stable small timestep
+        let displayManager = DisplayManager.shared
         
-        // Calculate weighted average of mouse movements
+        // Compute classic smoothed next
         var weightedTotalX: Double = 0
         var weightedTotalY: Double = 0
         var totalWeight: Double = 0
-        
         for (device, delta) in mouseDeltas {
             let weight = mouseWeights[device] ?? 1.0
             weightedTotalX += Double(delta.x) * weight
             weightedTotalY += Double(delta.y) * weight
             totalWeight += weight
         }
+        var classicNext = fusedPosition
+        if totalWeight > 0 {
+            let avgX = weightedTotalX / totalWeight
+            let avgY = weightedTotalY / totalWeight
+            let smoothing = min(1.0, currentTime.timeIntervalSince(lastUpdateTime) * 60.0)
+            let newX = fusedPosition.x + CGFloat(avgX)
+            let newY = fusedPosition.y + CGFloat(avgY)
+            classicNext.x = fusedPosition.x * (1.0 - smoothing) + newX * smoothing
+            classicNext.y = fusedPosition.y * (1.0 - smoothing) + newY * smoothing
+        }
         
-        guard totalWeight > 0 else { return }
-        
-        let avgX = weightedTotalX / totalWeight
-        let avgY = weightedTotalY / totalWeight
-        
-        // Apply smoothing to position updates using multi-display support
-        let displayManager = DisplayManager.shared
-        let timeDelta = currentTime.timeIntervalSince(lastUpdateTime)
-        let smoothing = min(1.0, timeDelta * 60.0) // 60 FPS smoothing
-        
-        let newX = fusedPosition.x + CGFloat(avgX)
-        let newY = fusedPosition.y + CGFloat(avgY) // Normal Y axis
-        
-        // Apply smoothing
-        fusedPosition.x = fusedPosition.x * (1.0 - smoothing) + newX * smoothing
-        fusedPosition.y = fusedPosition.y * (1.0 - smoothing) + newY * smoothing
-        
-        // Clamp to screen bounds using multi-display support
-        if let display = displayManager.getDisplayAt(x: fusedPosition.x, y: fusedPosition.y) {
-            let clampedCoords = displayManager.clampToDisplayBounds(x: fusedPosition.x, y: fusedPosition.y, display: display)
-            fusedPosition.x = clampedCoords.x
-            fusedPosition.y = clampedCoords.y
+        if physicsEnabled {
+            // 3-body-inspired physics step
+            var force = CGPoint(x: 0, y: 0)
+            for (device, delta) in mouseDeltas {
+                let weight = CGFloat(mouseWeights[device] ?? 1.0)
+                force.x += CGFloat(delta.x) * weight * physicsGain
+                force.y += CGFloat(delta.y) * weight * physicsGain
+            }
+            fusedVelocity.x = (1.0 - physicsDamping) * fusedVelocity.x + force.x * CGFloat(dt)
+            fusedVelocity.y = (1.0 - physicsDamping) * fusedVelocity.y + force.y * CGFloat(dt)
+            let speed = sqrt(fusedVelocity.x * fusedVelocity.x + fusedVelocity.y * fusedVelocity.y)
+            if speed > maxSpeed {
+                let scale = maxSpeed / speed
+                fusedVelocity.x *= scale
+                fusedVelocity.y *= scale
+            }
+            fusedPosition.x = fusedPosition.x + fusedVelocity.x * CGFloat(dt)
+            fusedPosition.y = fusedPosition.y + fusedVelocity.y * CGFloat(dt)
         } else {
-            // Fallback to primary display
-            if let primaryDisplay = displayManager.getPrimaryDisplay() {
-                let clampedCoords = displayManager.clampToDisplayBounds(x: fusedPosition.x, y: fusedPosition.y, display: primaryDisplay)
-                fusedPosition.x = clampedCoords.x
-                fusedPosition.y = clampedCoords.y
-            }
+            fusedPosition = classicNext
         }
-            
-            // Clear deltas after processing
-            for key in mouseDeltas.keys {
-                mouseDeltas[key] = (0, 0)
-            }
-            
-            // Move cursor to fused position
-            CGWarpMouseCursorPosition(fusedPosition)
-            CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
-            
-            // Reset to default cursor in fused mode
-            resetToDefaultCursor()
-            
-            lastUpdateTime = currentTime
+        
+        // Clamp to screen bounds
+        if let display = displayManager.getDisplayAt(x: fusedPosition.x, y: fusedPosition.y) {
+            let clamped = displayManager.clampToDisplayBounds(x: fusedPosition.x, y: fusedPosition.y, display: display)
+            fusedPosition = CGPoint(x: clamped.x, y: clamped.y)
         }
+        
+        // Clear deltas
+        for key in mouseDeltas.keys { mouseDeltas[key] = (0, 0) }
+        
+        // Apply
+        CGWarpMouseCursorPosition(fusedPosition)
+        CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+        resetToDefaultCursor()
+        lastUpdateTime = currentTime
+    }
+
+    // Back-compat for earlier slider: treat >0.5 as enabled
+    func setPhysicsBlend(_ value: Double) { physicsEnabled = value > 0.5 }
     
     // MARK: - Public Methods
     // Public methods for mode switching and information

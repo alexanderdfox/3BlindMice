@@ -10,6 +10,7 @@ class UIManager {
             connectedMice: document.getElementById('connectedMice'),
             currentMode: document.getElementById('currentMode'),
             toggleMode: document.getElementById('toggleMode'),
+            togglePhysics: document.getElementById('togglePhysics'),
             clearData: document.getElementById('clearData'),
             toggleFullscreen: document.getElementById('toggleFullscreen'),
             toggleCameras: document.getElementById('toggleCameras'),
@@ -48,6 +49,16 @@ class UIManager {
         this.elements.toggleMode.addEventListener('click', () => {
             this.onToggleMode();
         });
+        // Toggle physics button
+        if (this.elements.togglePhysics) {
+            this.elements.togglePhysics.addEventListener('click', () => {
+                if (window.app && window.app.mouseTracker) {
+                    window.app.mouseTracker.togglePhysics();
+                    const on = window.app.mouseTracker.physicsEnabled;
+                    this.elements.togglePhysics.innerHTML = on ? '<span class="btn-icon">🪐</span> 3-Body On' : '<span class="btn-icon">🪐</span> 3-Body Off';
+                }
+            });
+        }
         
         // Clear data button
         this.elements.clearData.addEventListener('click', () => {
@@ -138,6 +149,7 @@ class UIManager {
             this.elements.clientId.textContent = clientId ? clientId.substring(0, 8) + '...' : '-';
             this.elements.clientRole.textContent = isHost ? 'Host' : 'Client';
             this.elements.toggleMode.disabled = !isHost;
+            if (this.elements.togglePhysics) this.elements.togglePhysics.disabled = !isHost;
             this.hideLoading();
         } else {
             statusDot.className = 'status-dot disconnected';
@@ -145,6 +157,7 @@ class UIManager {
             this.elements.clientId.textContent = '-';
             this.elements.clientRole.textContent = '-';
             this.elements.toggleMode.disabled = true;
+            if (this.elements.togglePhysics) this.elements.togglePhysics.disabled = true;
             this.showLoading();
         }
     }
