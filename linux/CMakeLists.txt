@@ -28,11 +28,10 @@ if(NOT EVDEV_LIB)
     message(FATAL_ERROR "libevdev not found. Please install libevdev-dev")
 endif()
 
-# Enable Swift and ensure toolchain exists
-enable_language(Swift)
+# Detect Swift toolchain (Swift is built via script, not CMake)
 find_program(SWIFT_EXECUTABLE swift)
 if(NOT SWIFT_EXECUTABLE)
-    message(FATAL_ERROR "Swift not found. Please install Swift for Linux.")
+    message(WARNING "Swift not found. Swift executable will not be built by the script.")
 endif()
 
 # Include directories
@@ -63,32 +62,7 @@ target_link_libraries(ThreeBlindMiceLib
     ${EVDEV_LIB}
 )
 
-# Swift executable target
-set(SWIFT_SOURCES
-    src/swift/main.swift
-    src/swift/MultiMouseManager.swift
-    src/swift/DisplayManager.swift
-    src/hipaa/HIPAASecurity.swift
-    src/hipaa/HIPAADataManager.swift
-)
-
-add_executable(ThreeBlindMice ${SWIFT_SOURCES})
-
-# Ensure the executable can find the shared library at runtime
-set_target_properties(ThreeBlindMice PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-)
-
-target_link_libraries(ThreeBlindMice PRIVATE ThreeBlindMiceLib)
-
-if(UNIX AND NOT APPLE)
-    # On Linux, set RPATH to $ORIGIN to locate libthreeblindmice next to the binary
-    set_target_properties(ThreeBlindMice PROPERTIES
-        BUILD_WITH_INSTALL_RPATH TRUE
-        INSTALL_RPATH "\$ORIGIN"
-        SKIP_BUILD_RPATH FALSE
-    )
-endif()
+# Note: Swift executable is built by build.sh using swiftc and linked to ThreeBlindMiceLib
 
 # Install udev rules (if they exist)
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/udev/99-threeblindmice.rules)

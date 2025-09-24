@@ -18,12 +18,11 @@ if ! command -v cmake &> /dev/null; then
     exit 1
 fi
 
-# Check if Swift is available
+# Swift is optional now; if present we'll build the Swift executable
+HAS_SWIFT=1
 if ! command -v swift &> /dev/null; then
-    echo "❌ Swift not found"
-    echo "Please install Swift for Linux:"
-    echo "  https://swift.org/download/"
-    exit 1
+    HAS_SWIFT=0
+    echo "⚠️  Swift not found - will build C library only"
 fi
 
 # Check if required development packages are installed
@@ -71,11 +70,42 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "✅ Build completed successfully!"
-echo "📁 Output: build/bin/ThreeBlindMice"
-echo ""
-echo "🚀 To run: ./build/bin/ThreeBlindMice"
-echo ""
-echo "💡 For proper permissions, run:"
-echo "   sudo ./install.sh"
-echo ""
+echo "✅ C library built successfully!"
+
+# Build Swift executable if Swift is available
+if [ "$HAS_SWIFT" -eq 1 ]; then
+  echo "📦 Building Swift executable..."
+  SWIFT_SOURCES=(
+    ../src/swift/main.swift
+    ../src/swift/MultiMouseManager.swift
+    ../src/swift/DisplayManager.swift
+    ../src/hipaa/HIPAASecurity.swift
+    ../src/hipaa/HIPAADataManager.swift
+  )
+
+  mkdir -p bin
+  # Ensure lib path at runtime
+  export LD_LIBRARY_PATH="${PWD}/bin:${LD_LIBRARY_PATH}"
+
+  swiftc -O \
+    -Xswiftc -enable-testing \
+    -L"${PWD}/bin" -lthreeblindmice \
+    -o bin/ThreeBlindMice "${SWIFT_SOURCES[@]}"
+
+  if [ $? -ne 0 ]; then
+    echo "❌ Swift build failed"
+    exit 1
+  fi
+
+  echo ""
+  echo "✅ Build completed successfully!"
+  echo "📁 Output: build/bin/ThreeBlindMice"
+  echo ""
+  echo "🚀 To run: LD_LIBRARY_PATH=build/bin ./build/bin/ThreeBlindMice"
+  echo ""
+  echo "💡 For proper permissions, run:"
+  echo "   sudo ./install.sh"
+  echo ""
+else
+  echo "ℹ️  Skipped Swift build. Only libthreeblindmice.so was produced in build/bin."
+fi
