@@ -1305,10 +1305,22 @@ class MultiMouseManager: ObservableObject {
             fusedPosition = classicNext
         }
         
-        // Clamp to screen bounds
+        // Toroidal wrap-around within the active display bounds
         if let display = displayManager.getDisplayAt(x: fusedPosition.x, y: fusedPosition.y) {
-            let clamped = displayManager.clampToDisplayBounds(x: fusedPosition.x, y: fusedPosition.y, display: display)
-            fusedPosition = CGPoint(x: clamped.x, y: clamped.y)
+            let minX = CGFloat(display.x)
+            let minY = CGFloat(display.y)
+            let width = CGFloat(display.width)
+            let height = CGFloat(display.height)
+            func wrap(_ value: CGFloat, _ start: CGFloat, _ size: CGFloat) -> CGFloat {
+                if size <= 0 { return start }
+                let local = value - start
+                let wrappedLocal = local.truncatingRemainder(dividingBy: size)
+                let positive = wrappedLocal < 0 ? wrappedLocal + size : wrappedLocal
+                return start + positive
+            }
+            let wrappedX = wrap(fusedPosition.x, minX, width)
+            let wrappedY = wrap(fusedPosition.y, minY, height)
+            fusedPosition = CGPoint(x: wrappedX, y: wrappedY)
         }
         
         // Clear deltas

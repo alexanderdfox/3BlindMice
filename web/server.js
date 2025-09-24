@@ -313,10 +313,12 @@ function updateIndividualMousePosition(clientId, deltaX, deltaY) {
     const currentPos = mousePositions.get(clientId) || { x: 960, y: 540 }; // Start at screen center
     const newX = currentPos.x + deltaX;
     const newY = currentPos.y + deltaY;
-    mousePositions.set(clientId, {
-        x: Math.max(0, Math.min(newX, 1920 - 1)),
-        y: Math.max(0, Math.min(newY, 1080 - 1))
-    });
+    // Toroidal wrap-around within 1920x1080 logical space
+    const width = 1920;
+    const height = 1080;
+    const wrappedX = ((newX % width) + width) % width;
+    const wrappedY = ((newY % height) + height) % height;
+    mousePositions.set(clientId, { x: wrappedX, y: wrappedY });
 }
 
 // Handle individual mode
@@ -371,8 +373,11 @@ function fuseAndMoveCursor() {
         hostCursorPosition.x = hostCursorPosition.x * (1 - smoothing) + (hostCursorPosition.x + avgX) * smoothing;
         hostCursorPosition.y = hostCursorPosition.y * (1 - smoothing) + (hostCursorPosition.y + avgY) * smoothing;
     }
-    hostCursorPosition.x = Math.max(0, Math.min(hostCursorPosition.x, 1920 - 1));
-    hostCursorPosition.y = Math.max(0, Math.min(hostCursorPosition.y, 1080 - 1));
+    // Toroidal wrap-around for host cursor position
+    const width = 1920;
+    const height = 1080;
+    hostCursorPosition.x = ((hostCursorPosition.x % width) + width) % width;
+    hostCursorPosition.y = ((hostCursorPosition.y % height) + height) % height;
     if (config.enableHostCursorControl && robot) {
         try { robot.moveMouse(Math.round(hostCursorPosition.x), Math.round(hostCursorPosition.y)); } catch (e) {}
     }

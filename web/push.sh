@@ -7,7 +7,7 @@ set -euo pipefail
 #   ./push.sh alexanderdfox/three-blind-mice-web
 # If not provided, defaults to alexanderdfox/three-blind-mice-web
 
-REPO_NAME="${1:-alexanderdfox/three-blind-mice-web}"
+REPO_NAME="${1:-alexdgreatfox/three-blind-mice-web}"
 IMAGE_LOCAL="three-blind-mice-web:latest"
 GIT_SHA=$(git rev-parse --short HEAD)
 
