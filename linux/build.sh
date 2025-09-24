@@ -18,11 +18,11 @@ if ! command -v cmake &> /dev/null; then
     exit 1
 fi
 
-# Swift is optional now; if present we'll build the Swift executable
+# Swift is optional now; if present we'll build the Swift executable (requires swiftc)
 HAS_SWIFT=1
-if ! command -v swift &> /dev/null; then
+if ! command -v swiftc &> /dev/null; then
     HAS_SWIFT=0
-    echo "⚠️  Swift not found - will build C library only"
+    echo "⚠️  Swift compiler (swiftc) not found - will build C library only"
 fi
 
 # Check if required development packages are installed
@@ -88,7 +88,6 @@ if [ "$HAS_SWIFT" -eq 1 ]; then
   export LD_LIBRARY_PATH="${PWD}/bin:${LD_LIBRARY_PATH}"
 
   swiftc -O \
-    -Xswiftc -enable-testing \
     -L"${PWD}/bin" -lthreeblindmice \
     -o bin/ThreeBlindMice "${SWIFT_SOURCES[@]}"
 
