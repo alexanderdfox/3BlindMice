@@ -21,6 +21,7 @@ find_package(PkgConfig REQUIRED)
 # Find X11
 pkg_check_modules(X11 REQUIRED x11)
 pkg_check_modules(XTEST REQUIRED xtst)
+pkg_check_modules(XRANDR REQUIRED xrandr)
 
 # Find evdev
 find_library(EVDEV_LIB evdev)
@@ -38,6 +39,7 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/c)
 include_directories(${X11_INCLUDE_DIRS})
 include_directories(${XTEST_INCLUDE_DIRS})
+include_directories(${XRANDR_INCLUDE_DIRS})
 
 # C source files
 set(C_SOURCES
@@ -65,7 +67,7 @@ set_target_properties(ThreeBlindMiceLib PROPERTIES
 
 # Pure C executable for Linux
 add_executable(ThreeBlindMiceC src/c/main.c)
-target_link_libraries(ThreeBlindMiceC PRIVATE ThreeBlindMiceLib ${X11_LIBRARIES} ${XTEST_LIBRARIES} ${EVDEV_LIB})
+target_link_libraries(ThreeBlindMiceC PRIVATE ThreeBlindMiceLib ${X11_LIBRARIES} ${XTEST_LIBRARIES} ${XRANDR_LIBRARIES} ${EVDEV_LIB})
 set_target_properties(ThreeBlindMiceC PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
@@ -74,6 +76,7 @@ set_target_properties(ThreeBlindMiceC PROPERTIES
 target_link_libraries(ThreeBlindMiceLib
     ${X11_LIBRARIES}
     ${XTEST_LIBRARIES}
+    ${XRANDR_LIBRARIES}
     ${EVDEV_LIB}
 )
 
