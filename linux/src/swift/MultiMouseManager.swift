@@ -41,7 +41,7 @@ class MultiMouseManager {
         // Initialize fused position to screen center
         let screenWidth = getScreenWidth()
         let screenHeight = getScreenHeight()
-        fusedPosition = MousePosition(x: screenWidth / 2, y: screenHeight / 2)
+        fusedPosition = MousePosition(x: Double(screenWidth) / 2.0, y: Double(screenHeight) / 2.0)
         
         print("🐭 Enhanced Multi-Mouse Triangulation System (Linux)")
         print("===================================================")
@@ -95,7 +95,7 @@ class MultiMouseManager {
             // Initialize mouse position to screen center
             let screenWidth = getScreenWidth()
             let screenHeight = getScreenHeight()
-            mousePositions[deviceId] = MousePosition(x: screenWidth / 2, y: screenHeight / 2)
+            mousePositions[deviceId] = MousePosition(x: Double(screenWidth) / 2.0, y: Double(screenHeight) / 2.0)
         }
         if mouseRotations[deviceId] == nil {
             mouseRotations[deviceId] = 0.0
