@@ -6,7 +6,8 @@ class MultiMouseManager {
         this.mousePositions = new Map();
         this.mouseWeights = new Map();
         this.mouseActivity = new Map();
-        this.fusedPosition = { x: 500, y: 500 };
+        this.mouseRotations = new Map(); // Mouse rotation tracking
+        this.fusedPosition = { x: 0, y: 0 }; // Will be initialized to screen center
         this.lastUpdateTime = Date.now();
         this.smoothingFactor = 0.7;
         this.useIndividualMode = false;
@@ -31,6 +32,11 @@ class MultiMouseManager {
     async initialize() {
         console.log('🐭 3 Blind Mice Chrome Extension initialized');
         console.log('🏥 HIPAA Compliant for healthcare environments');
+        
+        // Initialize fused position to screen center
+        const screenWidth = await this.getScreenWidth();
+        const screenHeight = await this.getScreenHeight();
+        this.fusedPosition = { x: screenWidth / 2, y: screenHeight / 2 };
         
         // Initialize HIPAA compliance features
         this.initializeHIPAACompliance();
@@ -73,6 +79,8 @@ class MultiMouseManager {
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (message.type === 'pointerEvent') {
                 this.handlePointerEvent(message.data);
+            } else if (message.type === 'scrollEvent') {
+                this.handleScrollEvent(message.data);
             }
         });
     }
@@ -184,7 +192,10 @@ class MultiMouseManager {
             this.mouseWeights.set(deviceId, 1.0);
         }
         if (!this.mousePositions.has(deviceId)) {
-            this.mousePositions.set(deviceId, { x: 500, y: 500 });
+            // Initialize mouse position to screen center
+            const screenWidth = await this.getScreenWidth();
+            const screenHeight = await this.getScreenHeight();
+            this.mousePositions.set(deviceId, { x: screenWidth / 2, y: screenHeight / 2 });
         }
         
         // Process input based on event type
@@ -210,11 +221,44 @@ class MultiMouseManager {
             this.mouseWeights.set(deviceId, 1.0);
         }
         if (!this.mousePositions.has(deviceId)) {
-            this.mousePositions.set(deviceId, { x: 500, y: 500 });
+            // Initialize mouse position to screen center
+            const screenWidth = await this.getScreenWidth();
+            const screenHeight = await this.getScreenHeight();
+            this.mousePositions.set(deviceId, { x: screenWidth / 2, y: screenHeight / 2 });
         }
         
         // Process pointer movement
         this.processMouseMove(deviceId, data.deltaX || 0, data.deltaY || 0);
+    }
+    
+    handleScrollEvent(data) {
+        if (!this.isRunning) return;
+        
+        const deviceId = data.deviceId || 'default';
+        const currentTime = Date.now();
+        
+        // Update mouse activity
+        this.mouseActivity.set(deviceId, currentTime);
+        
+        // Initialize rotation if not set
+        if (!this.mouseRotations.has(deviceId)) {
+            this.mouseRotations.set(deviceId, 0.0);
+        }
+        
+        // Update rotation based on scroll wheel
+        const rotationDelta = data.scrollDelta * 15.0; // 15 degrees per scroll step
+        const currentRotation = this.mouseRotations.get(deviceId) || 0.0;
+        let newRotation = currentRotation + rotationDelta;
+        
+        // Normalize rotation to 0-360 degrees
+        newRotation = newRotation % 360;
+        if (newRotation < 0) {
+            newRotation += 360;
+        }
+        
+        this.mouseRotations.set(deviceId, newRotation);
+        
+        console.log(`🔄 Mouse rotation: ${Math.round(newRotation)}°`);
     }
     
     processMouseMove(deviceId, deltaX, deltaY) {

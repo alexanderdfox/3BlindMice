@@ -1,6 +1,6 @@
 # 3 Blind Mice - Multi-Mouse Triangulation
 
-A sophisticated cross-platform application that enables multiple mice to control a single cursor through intelligent triangulation algorithms. Available for macOS, Windows, Linux, and ChromeOS. **HIPAA compliant** for healthcare environments.
+A sophisticated cross-platform application that enables multiple mice to control a single cursor through intelligent triangulation algorithms. Available for macOS, Windows, Linux, ChromeOS, and Web. **HIPAA compliant** for healthcare environments.
 
 ## 🎯 Features
 
@@ -90,6 +90,19 @@ A sophisticated cross-platform application that enables multiple mice to control
 │   ├── package.sh             # Package extension
 │   ├── test_chromeos.sh       # ChromeOS testing script
 │   └── TEST_RESULTS.md        # ChromeOS test results
+├── web/                       # Web implementation
+│   ├── public/                # Web client files
+│   │   ├── index.html         # Main web interface
+│   │   ├── styles.css         # Styling
+│   │   ├── app.js             # Main application logic
+│   │   ├── mouse-tracker.js   # Mouse tracking system
+│   │   ├── ui-manager.js      # UI management
+│   │   └── demo.html          # Demo page
+│   ├── server.js              # Node.js WebSocket server
+│   ├── package.json           # Node.js dependencies
+│   ├── start.sh               # Startup script
+│   ├── .gitignore             # Git ignore rules
+│   └── README.md              # Web version documentation
 ├── docs/                      # Documentation
 │   ├── USAGE.md              # Use cases and scenarios
 │   ├── TRIANGULATION_ENHANCEMENTS.md

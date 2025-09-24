@@ -5,6 +5,7 @@
 // Global instance for C interface
 static std::unique_ptr<WindowsHIDManager> g_hidManager = nullptr;
 static std::function<void(UINT32, INT32, INT32)> g_mouseCallback = nullptr;
+static std::function<void(UINT32, INT32)> g_scrollCallback = nullptr;
 
 WindowsHIDManager::WindowsHIDManager() : m_hwnd(nullptr), m_initialized(false) {
 }
@@ -72,6 +73,11 @@ void WindowsHIDManager::startMessageLoop() {
 void WindowsHIDManager::setMouseInputCallback(std::function<void(UINT32, INT32, INT32)> callback) {
     m_mouseCallback = callback;
     g_mouseCallback = callback;
+}
+
+void WindowsHIDManager::setScrollInputCallback(std::function<void(UINT32, INT32)> callback) {
+    m_scrollCallback = callback;
+    g_scrollCallback = callback;
 }
 
 INT32 WindowsHIDManager::getScreenWidth() {
@@ -150,9 +156,17 @@ void WindowsHIDManager::handleRawInput(LPARAM lParam) {
         INT32 deltaX = mouse.lLastX;
         INT32 deltaY = mouse.lLastY;
         
-        // Call the callback if set
-        if (m_mouseCallback) {
+        // Extract scroll wheel data
+        USHORT wheelDelta = mouse.usButtonData;
+        
+        // Call the mouse movement callback if set
+        if (m_mouseCallback && (deltaX != 0 || deltaY != 0)) {
             m_mouseCallback(deviceId, deltaX, deltaY);
+        }
+        
+        // Call the scroll callback if set and wheel was moved
+        if (m_scrollCallback && wheelDelta != 0) {
+            m_scrollCallback(deviceId, static_cast<INT32>(wheelDelta));
         }
     }
 }

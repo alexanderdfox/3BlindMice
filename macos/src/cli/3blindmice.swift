@@ -9,6 +9,7 @@ class MultiMouseManager {
 	private var mousePositions: [IOHIDDevice: CGPoint] = [:] // Individual mouse positions
 	private var mouseWeights: [IOHIDDevice: Double] = [:]
 	private var mouseActivity: [IOHIDDevice: Date] = [:]
+	private var mouseRotations: [IOHIDDevice: Double] = [:] // Mouse rotation tracking
 	private var fusedPosition = CGPoint(x: 0, y: 0) // Will be initialized to screen center
 	private var lastUpdateTime = Date()
 	private var smoothingFactor: Double = 0.7
@@ -78,12 +79,15 @@ class MultiMouseManager {
 				if mouseWeights[device] == nil {
 					mouseWeights[device] = 1.0
 				}
-			if mousePositions[device] == nil {
-				// Start each new mouse at the center of the screen
-				let screenFrame = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
-				let centerX = screenFrame.width / 2
-				let centerY = screenFrame.height / 2
-				mousePositions[device] = CGPoint(x: centerX, y: centerY)
+				if mousePositions[device] == nil {
+					// Start each new mouse at the center of the screen
+					let screenFrame = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
+					let centerX = screenFrame.width / 2
+					let centerY = screenFrame.height / 2
+					mousePositions[device] = CGPoint(x: centerX, y: centerY)
+				}
+				if mouseRotations[device] == nil {
+					mouseRotations[device] = 0.0
 				}
 
 				var delta = mouseDeltas[device] ?? (0, 0)
@@ -106,6 +110,30 @@ class MultiMouseManager {
 				} else {
 					fuseAndMoveCursor()
 				}
+			} else if usage == 0x38 { // Scroll wheel (kHIDUsage_GD_Wheel)
+				let intValue = IOHIDValueGetIntegerValue(value)
+				let device = IOHIDElementGetDevice(element)
+				let currentTime = Date()
+				
+				// Update mouse activity timestamp
+				mouseActivity[device] = currentTime
+				
+				// Initialize rotation if not set
+				if mouseRotations[device] == nil {
+					mouseRotations[device] = 0.0
+				}
+				
+				// Update rotation based on scroll wheel
+				let rotationDelta = Double(intValue) * 15.0 // 15 degrees per scroll step
+				mouseRotations[device] = (mouseRotations[device] ?? 0.0) + rotationDelta
+				
+				// Normalize rotation to 0-360 degrees
+				mouseRotations[device] = mouseRotations[device]!.truncatingRemainder(dividingBy: 360.0)
+				if mouseRotations[device]! < 0 {
+					mouseRotations[device]! += 360.0
+				}
+				
+				print("🔄 Mouse rotation: \(Int(mouseRotations[device]!))°")
 			}
 		}
 	}
@@ -283,7 +311,8 @@ class MultiMouseManager {
 		print("📊 Individual Mouse Positions:")
 		let positions = getIndividualMousePositions()
 		for (device, position) in positions {
-			print("  🐭 \(device): (\(Int(position.x)), \(Int(position.y)))")
+			let rotation = mouseRotations.first { String(describing: $0.key) == device }?.value ?? 0.0
+			print("  🐭 \(device): (\(Int(position.x)), \(Int(position.y))) Rotation: \(Int(rotation))°")
 		}
 		print("")
 	}

@@ -31,7 +31,8 @@ class MultiMouseManager {
     private var mousePositions: [UInt32: MousePosition] = [:]
     private var mouseWeights: [UInt32: Double] = [:]
     private var mouseActivity: [UInt32: Date] = [:]
-    private var fusedPosition = MousePosition(x: 500, y: 500)
+    private var mouseRotations: [UInt32: Double] = [:] // Mouse rotation tracking
+    private var fusedPosition = MousePosition(x: 0, y: 0) // Will be initialized to screen center
     private var lastUpdateTime = Date()
     private var smoothingFactor: Double = 0.7
     private var useIndividualMode = false
@@ -41,6 +42,11 @@ class MultiMouseManager {
     private var evdevManagerHandle: UnsafeMutableRawPointer? = nil
     
     init() {
+        // Initialize fused position to screen center
+        let screenWidth = getScreenWidth()
+        let screenHeight = getScreenHeight()
+        fusedPosition = MousePosition(x: Double(screenWidth) / 2, y: Double(screenHeight) / 2)
+        
         print("🐭 Enhanced Multi-Mouse Triangulation System (ChromeOS)")
         print("=====================================================")
         print("Features: Weighted averaging, activity tracking, smoothing")
@@ -117,7 +123,13 @@ class MultiMouseManager {
             mouseWeights[deviceId] = 1.0
         }
         if mousePositions[deviceId] == nil {
-            mousePositions[deviceId] = MousePosition(x: 500, y: 500)
+            // Initialize mouse position to screen center
+            let screenWidth = getScreenWidth()
+            let screenHeight = getScreenHeight()
+            mousePositions[deviceId] = MousePosition(x: Double(screenWidth) / 2, y: Double(screenHeight) / 2)
+        }
+        if mouseRotations[deviceId] == nil {
+            mouseRotations[deviceId] = 0.0
         }
         
         // Update mouse delta
@@ -138,6 +150,31 @@ class MultiMouseManager {
         } else {
             fuseAndMoveCursor()
         }
+    }
+    
+    // Handle scroll wheel input for cursor rotation
+    func handleScrollInput(deviceId: UInt32, scrollDelta: Int32) {
+        let currentTime = Date()
+        
+        // Update mouse activity timestamp
+        mouseActivity[deviceId] = currentTime
+        
+        // Initialize rotation if not set
+        if mouseRotations[deviceId] == nil {
+            mouseRotations[deviceId] = 0.0
+        }
+        
+        // Update rotation based on scroll wheel
+        let rotationDelta = Double(scrollDelta) * 15.0 // 15 degrees per scroll step
+        mouseRotations[deviceId] = (mouseRotations[deviceId] ?? 0.0) + rotationDelta
+        
+        // Normalize rotation to 0-360 degrees
+        mouseRotations[deviceId] = mouseRotations[deviceId]!.truncatingRemainder(dividingBy: 360.0)
+        if mouseRotations[deviceId]! < 0 {
+            mouseRotations[deviceId]! += 360.0
+        }
+        
+        print("🔄 Mouse rotation: \(Int(mouseRotations[deviceId]!))°")
     }
     
     private func updateIndividualMousePosition(deviceId: UInt32, delta: MouseDelta) {
@@ -281,6 +318,16 @@ class MultiMouseManager {
         return useIndividualMode ? "Individual" : "Fused"
     }
     
+    // Get rotation for specific mouse
+    func getMouseRotation(for deviceId: UInt32) -> Double {
+        return mouseRotations[deviceId] ?? 0.0
+    }
+    
+    // Get all mouse rotations
+    func getAllMouseRotations() -> [UInt32: Double] {
+        return mouseRotations
+    }
+    
     func run() {
         print("Enhanced multi-mouse triangulation active (ChromeOS).")
         print("Features: Weighted averaging, activity tracking, smoothing")
@@ -332,7 +379,8 @@ class MultiMouseManager {
         print("📊 Individual Mouse Positions:")
         let positions = getIndividualMousePositions()
         for (device, position) in positions {
-            print("  🐭 \(device): (\(Int(position.x)), \(Int(position.y)))")
+            let rotation = mouseRotations.first { "Mouse_\($0.key)" == device }?.value ?? 0.0
+            print("  🐭 \(device): (\(Int(position.x)), \(Int(position.y))) Rotation: \(Int(rotation))°")
         }
         print("")
     }

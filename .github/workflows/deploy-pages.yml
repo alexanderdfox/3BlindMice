@@ -1,0 +1,34 @@
+name: Deploy Web UI to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/public/**'
+      - 'web/README.md'
+      - '.github/workflows/deploy-pages.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: web/public
+          keep_files: false
+          force_orphan: true

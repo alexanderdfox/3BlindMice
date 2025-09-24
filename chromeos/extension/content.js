@@ -40,6 +40,11 @@ class ContentScriptManager {
         document.addEventListener('pointerup', (event) => {
             this.trackDevice(event);
         }, true);
+        
+        // Monitor scroll wheel events for cursor rotation
+        document.addEventListener('wheel', (event) => {
+            this.handleScrollEvent(event);
+        }, true);
     }
     
     handlePointerEvent(event) {
@@ -80,6 +85,29 @@ class ContentScriptManager {
                 timestamp: Date.now()
             }
         });
+    }
+    
+    handleScrollEvent(event) {
+        if (!this.isActive) return;
+        
+        // Extract device information
+        const deviceId = event.pointerId ? `pointer_${event.pointerId}` : 'mouse';
+        const scrollDelta = event.deltaY; // Vertical scroll delta
+        
+        // Send to background script for cursor rotation
+        chrome.runtime.sendMessage({
+            type: 'scrollEvent',
+            data: {
+                deviceId: deviceId,
+                scrollDelta: scrollDelta,
+                timestamp: Date.now()
+            }
+        });
+        
+        // Prevent default scrolling if we're in control
+        if (this.isActive) {
+            event.preventDefault();
+        }
     }
     
     trackDevice(event) {

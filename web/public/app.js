@@ -10,7 +10,8 @@ class App {
         this.config = {
             serverUrl: (window.APP_CONFIG && window.APP_CONFIG.serverUrl) || window.location.origin,
             reconnectAttempts: 5,
-            reconnectDelay: 1000
+            reconnectDelay: 1000,
+            localMode: (window.APP_CONFIG && window.APP_CONFIG.localMode) || false
         };
         
         this.state = {
@@ -36,6 +37,28 @@ class App {
         // Initialize mouse tracker (will be connected to socket later)
         const canvas = document.getElementById('mouseCanvas');
         this.mouseTracker = new MouseTracker(canvas, null);
+        
+        if (this.config.localMode) {
+            console.log('🌐 Local-only mode enabled (no server required).');
+            // Fake a single "mouse" entry using local position
+            setInterval(() => {
+                const fakeId = 'local-mouse';
+                const positions = new Map([[fakeId, this.mouseTracker.currentPosition]]);
+                const weights = new Map([[fakeId, 1.0]]);
+                const activity = new Map([[fakeId, new Date()]]);
+                const rotations = new Map([[fakeId, this.mouseTracker.cursorRotation || 0]]);
+                // Update internal maps for rendering
+                this.mouseTracker.mousePositions = positions;
+                this.mouseTracker.mouseWeights = weights;
+                this.mouseTracker.mouseActivity = activity;
+                this.mouseTracker.mouseRotations = rotations;
+                // Update UI list
+                this.uiManager.updateMice([{ id: fakeId, position: this.mouseTracker.currentPosition, weight: 1.0, lastActivity: new Date(), rotation: this.mouseTracker.cursorRotation || 0, isActive: true }]);
+                this.uiManager.updateMode('individual', fakeId);
+                this.uiManager.updateConnectionStatus(true, 'local', true);
+            }, 100);
+            return;
+        }
         
         // Connect to server
         await this.connectToServer();

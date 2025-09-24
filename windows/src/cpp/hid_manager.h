@@ -21,6 +21,9 @@ public:
     // Register callback for mouse input
     void setMouseInputCallback(std::function<void(UINT32, INT32, INT32)> callback);
     
+    // Register callback for scroll input
+    void setScrollInputCallback(std::function<void(UINT32, INT32)> callback);
+    
     // Get screen dimensions
     INT32 getScreenWidth();
     INT32 getScreenHeight();
@@ -35,6 +38,7 @@ private:
     HWND m_hwnd;
     bool m_initialized;
     std::function<void(UINT32, INT32, INT32)> m_mouseCallback;
+    std::function<void(UINT32, INT32)> m_scrollCallback;
     
     // Window procedure for handling messages
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

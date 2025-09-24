@@ -306,7 +306,7 @@ struct ControlPanelView: View {
     @State private var individualPositions: [String: CGPoint] = [:]
     @State private var currentMode = "Fused"
     @State private var activeMouse = "None"
-    @State private var mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint)] = []
+    @State private var mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint, rotation: Double)] = []
     @State private var showDetailedInfo = false
     @State private var showEmojiSettings = false
     
@@ -540,7 +540,7 @@ struct CursorPositionView: View {
 struct IndividualMousePositionsView: View {
     let individualPositions: [String: CGPoint]
     let activeMouse: String
-    let mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint)]
+    let mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint, rotation: Double)]
     let timeAgoString: (Date) -> String
     let emojiManager: EmojiManager
     
@@ -573,6 +573,10 @@ struct IndividualMousePositionsView: View {
                                             .font(.caption2)
                                             .foregroundColor(.orange)
                                         Spacer()
+                                        Text("Rotation: \(Int(mouseInfo.rotation))°")
+                                            .font(.caption2)
+                                            .foregroundColor(.purple)
+                                        Spacer()
                                         if let activity = mouseInfo.activity {
                                             Text("Active: \(timeAgoString(activity))")
                                                 .font(.caption2)
@@ -603,7 +607,7 @@ struct IndividualMousePositionsView: View {
 }
 
 struct DetailedMouseInfoView: View {
-    let mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint)]
+    let mouseInfo: [(device: String, weight: Double, activity: Date?, position: CGPoint, rotation: Double)]
     let activeMouse: String
     let timeAgoString: (Date) -> String
     let emojiManager: EmojiManager
@@ -634,6 +638,10 @@ struct DetailedMouseInfoView: View {
                                 Text("Position: (\(Int(info.position.x)), \(Int(info.position.y)))")
                                     .font(.caption)
                                     .foregroundColor(.primary)
+                                Spacer()
+                                Text("Rotation: \(Int(info.rotation))°")
+                                    .font(.caption)
+                                    .foregroundColor(.purple)
                                 Spacer()
                                 if let activity = info.activity {
                                     Text("Active: \(timeAgoString(activity))")
@@ -833,6 +841,10 @@ class MultiMouseManager: ObservableObject {
     // Custom cursor cache
     private var customCursors: [String: NSCursor] = [:]
     
+    // Cursor rotation tracking
+    private var mouseRotations: [IOHIDDevice: Double] = [:]
+    private var cursorRotation: Double = 0.0 // Current cursor rotation in degrees
+    
     // MARK: - Initialization
     init() {
         setupHIDManager()
@@ -931,9 +943,12 @@ class MultiMouseManager: ObservableObject {
     
     // MARK: - Custom Cursor Management
     
-    private func createCustomCursor(from emoji: String) -> NSCursor? {
+    private func createCustomCursor(from emoji: String, rotation: Double = 0.0) -> NSCursor? {
+        // Create cache key with rotation
+        let cacheKey = "\(emoji)_\(Int(rotation))"
+        
         // Check cache first
-        if let cachedCursor = customCursors[emoji] {
+        if let cachedCursor = customCursors[cacheKey] {
             return cachedCursor
         }
         
@@ -942,6 +957,14 @@ class MultiMouseManager: ObservableObject {
         let image = NSImage(size: size)
         
         image.lockFocus()
+        
+        // Apply rotation transformation
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let rotationTransform = NSAffineTransform()
+        rotationTransform.translateX(by: center.x, yBy: center.y)
+        rotationTransform.rotate(byDegrees: rotation)
+        rotationTransform.translateX(by: -center.x, yBy: -center.y)
+        rotationTransform.concat()
         
         // Create attributed string with emoji
         let attributedString = NSAttributedString(
@@ -966,17 +989,60 @@ class MultiMouseManager: ObservableObject {
         let cursor = NSCursor(image: image, hotSpot: CGPoint(x: 16, y: 16))
         
         // Cache the cursor
-        customCursors[emoji] = cursor
+        customCursors[cacheKey] = cursor
         
         return cursor
     }
     
     // MARK: - Cursor Management
     func setCustomCursor(for device: IOHIDDevice, emoji: String) {
-        guard let cursor = createCustomCursor(from: emoji) else { return }
+        let rotation = mouseRotations[device] ?? 0.0
+        guard let cursor = createCustomCursor(from: emoji, rotation: rotation) else { return }
         
         DispatchQueue.main.async {
             cursor.set()
+        }
+    }
+    
+    private func updateCursorRotation(device: IOHIDDevice) {
+        guard let rotation = mouseRotations[device] else { return }
+        
+        // Update cursor rotation
+        cursorRotation = rotation
+        
+        // Update cursor if this is the active mouse
+        if useIndividualMode && device == activeMouse {
+            let deviceString = String(describing: device)
+            if let emojiManager = (NSApplication.shared.delegate as? AppDelegate)?.emojiManager {
+                let emoji = emojiManager.getEmoji(for: deviceString)
+                setCustomCursor(for: device, emoji: emoji)
+            }
+        }
+        
+        // In fused mode, update cursor for all mice (use weighted average)
+        if !useIndividualMode {
+            updateFusedCursorRotation()
+        }
+    }
+    
+    private func updateFusedCursorRotation() {
+        // Calculate weighted average rotation
+        var weightedRotation: Double = 0.0
+        var totalWeight: Double = 0.0
+        
+        for (device, rotation) in mouseRotations {
+            let weight = mouseWeights[device] ?? 1.0
+            weightedRotation += rotation * weight
+            totalWeight += weight
+        }
+        
+        if totalWeight > 0 {
+            cursorRotation = weightedRotation / totalWeight
+            // Normalize to 0-360 degrees
+            cursorRotation = cursorRotation.truncatingRemainder(dividingBy: 360.0)
+            if cursorRotation < 0 {
+                cursorRotation += 360.0
+            }
         }
     }
     
@@ -1023,6 +1089,9 @@ class MultiMouseManager: ObservableObject {
                     let centerY = screenFrame.height / 2
                     mousePositions[device] = CGPoint(x: centerX, y: centerY)
                 }
+                if mouseRotations[device] == nil {
+                    mouseRotations[device] = 0.0
+                }
                 
                 var delta = mouseDeltas[device] ?? (0, 0)
                 if usage == 0x30 {
@@ -1044,6 +1113,31 @@ class MultiMouseManager: ObservableObject {
                 } else {
                     fuseAndMoveCursor()
                 }
+            } else if usage == 0x38 { // Scroll wheel (kHIDUsage_GD_Wheel)
+                let intValue = IOHIDValueGetIntegerValue(value)
+                let device = IOHIDElementGetDevice(element)
+                let currentTime = Date()
+                
+                // Update mouse activity timestamp
+                mouseActivity[device] = currentTime
+                
+                // Initialize rotation if not set
+                if mouseRotations[device] == nil {
+                    mouseRotations[device] = 0.0
+                }
+                
+                // Update rotation based on scroll wheel
+                let rotationDelta = Double(intValue) * 15.0 // 15 degrees per scroll step
+                mouseRotations[device] = (mouseRotations[device] ?? 0.0) + rotationDelta
+                
+                // Normalize rotation to 0-360 degrees
+                mouseRotations[device] = mouseRotations[device]!.truncatingRemainder(dividingBy: 360.0)
+                if mouseRotations[device]! < 0 {
+                    mouseRotations[device]! += 360.0
+                }
+                
+                // Update cursor rotation
+                updateCursorRotation(device: device)
             }
         }
     }
@@ -1082,7 +1176,7 @@ class MultiMouseManager: ObservableObject {
             CGWarpMouseCursorPosition(position)
             CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
             
-            // Set custom cursor for this mouse
+            // Set custom cursor for this mouse with rotation
             let deviceString = String(describing: device)
             if let emojiManager = (NSApplication.shared.delegate as? AppDelegate)?.emojiManager {
                 let emoji = emojiManager.getEmoji(for: deviceString)
@@ -1218,14 +1312,30 @@ class MultiMouseManager: ObservableObject {
     }
     
     // Get detailed mouse information for debugging
-    func getMouseInfo() -> [(device: String, weight: Double, activity: Date?, position: CGPoint)] {
+    func getMouseInfo() -> [(device: String, weight: Double, activity: Date?, position: CGPoint, rotation: Double)] {
         return mouseDeltas.map { (device, _) in
             let deviceName = String(describing: device)
             let weight = mouseWeights[device] ?? 1.0
             let activity = mouseActivity[device]
             let position = mousePositions[device] ?? CGPoint(x: 0, y: 0)
-            return (device: deviceName, weight: weight, activity: activity, position: position)
+            let rotation = mouseRotations[device] ?? 0.0
+            return (device: deviceName, weight: weight, activity: activity, position: position, rotation: rotation)
         }
+    }
+    
+    // Get current cursor rotation
+    func getCurrentRotation() -> Double {
+        return cursorRotation
+    }
+    
+    // Get rotation for specific mouse
+    func getMouseRotation(for device: String) -> Double {
+        for (deviceObj, rotation) in mouseRotations {
+            if String(describing: deviceObj) == device {
+                return rotation
+            }
+        }
+        return 0.0
     }
     
     func printIndividualPositions() {
@@ -1246,8 +1356,9 @@ class MultiMouseManager: ObservableObject {
     
     func printDetailedMouseInfo() {
         print("Detailed Mouse Information:")
-        for (device, weight, activity, position) in getMouseInfo() {
-            print("Device: \(device), Weight: \(weight), Activity: \(activity?.description ?? "N/A"), Position: (\(Int(position.x)), \(Int(position.y)))")
+        for (device, weight, activity, position, rotation) in getMouseInfo() {
+            print("Device: \(device), Weight: \(weight), Activity: \(activity?.description ?? "N/A"), Position: (\(Int(position.x)), \(Int(position.y))), Rotation: \(Int(rotation))°")
         }
     }
 }
+
