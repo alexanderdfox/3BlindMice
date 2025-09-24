@@ -261,6 +261,9 @@ class MultiMouseManager {
         // Move cursor to fused position
         setCursorPosition(x: Int32(fusedPosition.x), y: Int32(fusedPosition.y))
         
+        // Update GUI if available
+        gui_update(fusedPosition.x, fusedPosition.y)
+        
         lastUpdateTime = currentTime
     }
     
@@ -309,6 +312,7 @@ class MultiMouseManager {
         print("- Press 'Ctrl+C' to exit")
         print("")
         print("Current mode: \(getMode())")
+        _ = gui_init(800, 600, "3 Blind Mice - Linux GUI")
         
         // Set up keyboard monitoring for mode switching
         DispatchQueue.global(qos: .background).async {
@@ -403,5 +407,14 @@ func getScreenHeightNative() -> Int32
 
 @_silgen_name("setCursorPositionNative")
 func setCursorPositionNative(x: Int32, y: Int32)
+
+@_silgen_name("gui_init")
+func gui_init(_ width: Int32, _ height: Int32, _ title: UnsafePointer<CChar>!) -> Int32
+
+@_silgen_name("gui_update")
+func gui_update(_ host_x: Double, _ host_y: Double)
+
+@_silgen_name("gui_close")
+func gui_close()
 
 // Date extension is defined in HIPAASecurity.swift

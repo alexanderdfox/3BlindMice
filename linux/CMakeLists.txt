@@ -43,6 +43,7 @@ include_directories(${XTEST_INCLUDE_DIRS})
 set(C_SOURCES
     src/c/evdev_manager.c
     src/c/display_manager.c
+    src/c/gui.c
 )
 
 # Create C shared library (not a static library)

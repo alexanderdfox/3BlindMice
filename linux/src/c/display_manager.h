@@ -38,6 +38,11 @@ void display_manager_clamp_to_display_bounds(int32_t x, int32_t y, const Display
 const char* display_manager_get_display_name(const DisplayInfo* display);
 bool display_manager_is_point_in_display(int32_t x, int32_t y, const DisplayInfo* display);
 
+// GUI bridge (optional)
+int gui_init(int width, int height, const char* title);
+void gui_update(double host_x, double host_y);
+void gui_close(void);
+
 #ifdef __cplusplus
 }
 #endif
