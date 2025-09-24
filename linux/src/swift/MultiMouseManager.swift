@@ -263,6 +263,7 @@ class MultiMouseManager {
         
         // Update GUI if available
         gui_update(fusedPosition.x, fusedPosition.y)
+        tray_set_active_mouse(getActiveMouse() ?? "-")
         
         lastUpdateTime = currentTime
     }
@@ -271,6 +272,7 @@ class MultiMouseManager {
     func toggleMode() {
         useIndividualMode.toggle()
         print("🔄 Mode switched to: \(useIndividualMode ? "Individual Mouse Control" : "Fused Triangulation")")
+        tray_set_mode(useIndividualMode ? "Individual" : "Fused")
     }
     
     func getIndividualMousePositions() -> [String: MousePosition] {
@@ -313,6 +315,7 @@ class MultiMouseManager {
         print("")
         print("Current mode: \(getMode())")
         _ = gui_init(800, 600, "3 Blind Mice - Linux GUI")
+        _ = tray_init("3 Blind Mice")
         
         // Set up keyboard monitoring for mode switching
         DispatchQueue.global(qos: .background).async {
@@ -416,5 +419,20 @@ func gui_update(_ host_x: Double, _ host_y: Double)
 
 @_silgen_name("gui_close")
 func gui_close()
+
+@_silgen_name("tray_init")
+func tray_init(_ app_name: UnsafePointer<CChar>!) -> Int32
+
+@_silgen_name("tray_set_mode")
+func tray_set_mode(_ mode: UnsafePointer<CChar>!)
+
+@_silgen_name("tray_set_connected")
+func tray_set_connected(_ connected: Int32)
+
+@_silgen_name("tray_set_active_mouse")
+func tray_set_active_mouse(_ mouse_id: UnsafePointer<CChar>!)
+
+@_silgen_name("tray_cleanup")
+func tray_cleanup()
 
 // Date extension is defined in HIPAASecurity.swift

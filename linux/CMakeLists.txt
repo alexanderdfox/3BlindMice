@@ -44,6 +44,7 @@ set(C_SOURCES
     src/c/evdev_manager.c
     src/c/display_manager.c
     src/c/gui.c
+    src/c/tray.c
 )
 
 # Create C shared library (not a static library)
