@@ -1,0 +1,289 @@
+/**
+ * Main Application - Coordinates all components
+ */
+class App {
+    constructor() {
+        this.socket = null;
+        this.mouseTracker = null;
+        this.uiManager = null;
+        
+        this.config = {
+            serverUrl: (window.APP_CONFIG && window.APP_CONFIG.serverUrl) || window.location.origin,
+            reconnectAttempts: 5,
+            reconnectDelay: 1000
+        };
+        
+        this.state = {
+            connected: false,
+            clientId: null,
+            isHost: false,
+            mode: 'fused',
+            activeMouse: null
+        };
+        
+        this.init();
+    }
+    
+    async init() {
+        console.log('🐭 3 Blind Mice Web App Starting...');
+        
+        // Initialize UI Manager
+        this.uiManager = new UIManager();
+        
+        // Setup keyboard shortcuts
+        this.uiManager.setupKeyboardShortcuts();
+        
+        // Initialize mouse tracker (will be connected to socket later)
+        const canvas = document.getElementById('mouseCanvas');
+        this.mouseTracker = new MouseTracker(canvas, null);
+        
+        // Connect to server
+        await this.connectToServer();
+        
+        // Make app globally available
+        window.app = this;
+    }
+    
+    async connectToServer() {
+        try {
+            console.log('🔌 Connecting to server...');
+            this.uiManager.showLoading();
+            
+            // Initialize socket connection
+            this.socket = io(this.config.serverUrl);
+            
+            // Update mouse tracker with socket
+            this.mouseTracker.socket = this.socket;
+            
+            // Setup socket event listeners
+            this.setupSocketListeners();
+            
+        } catch (error) {
+            console.error('❌ Failed to connect to server:', error);
+            this.uiManager.showNotification('Failed to connect to server', 'error');
+            this.uiManager.updateConnectionStatus(false);
+        }
+    }
+    
+    setupSocketListeners() {
+        // Connection events
+        this.socket.on('connect', () => {
+            console.log('✅ Connected to server');
+            this.state.connected = true;
+            this.uiManager.showNotification('Connected to server', 'success');
+        });
+        
+        this.socket.on('disconnect', (reason) => {
+            console.log('🔌 Disconnected from server:', reason);
+            this.state.connected = false;
+            this.uiManager.updateConnectionStatus(false);
+            
+            if (reason === 'io server disconnect') {
+                this.uiManager.showNotification('Disconnected by server', 'warning');
+            } else {
+                this.uiManager.showNotification('Connection lost', 'error');
+            }
+        });
+        
+        this.socket.on('connect_error', (error) => {
+            console.error('❌ Connection error:', error);
+            this.uiManager.showNotification('Connection error', 'error');
+            this.uiManager.updateConnectionStatus(false);
+        });
+        
+        // Configuration
+        this.socket.on('config', (config) => {
+            console.log('⚙️ Received config:', config);
+            this.state.clientId = config.clientId;
+            this.state.isHost = config.isHost;
+            
+            this.uiManager.updateConnectionStatus(true, config.clientId, config.isHost);
+            
+            if (config.isHost) {
+                this.uiManager.showNotification('You are the host computer', 'success');
+            }
+        });
+        
+        // Mouse data updates
+        this.socket.on('mouseData', (data) => {
+            console.log('🖱️ Received initial mouse data:', data);
+            this.updateMouseData(data);
+        });
+        
+        this.socket.on('mouseUpdate', (data) => {
+            this.updateMouseData(data);
+        });
+        
+        // Mode changes
+        this.socket.on('modeChanged', (data) => {
+            console.log('🔄 Mode changed:', data);
+            this.state.mode = data.mode;
+            this.state.activeMouse = data.activeMouse;
+            
+            this.uiManager.updateMode(data.mode, data.activeMouse);
+        });
+        
+        // Host promotion
+        this.socket.on('promotedToHost', () => {
+            console.log('👑 Promoted to host');
+            this.state.isHost = true;
+            this.uiManager.updateConnectionStatus(true, this.state.clientId, true);
+            this.uiManager.showNotification('You are now the host computer', 'success');
+        });
+        
+        // Error handling
+        this.socket.on('error', (error) => {
+            console.error('❌ Socket error:', error);
+            this.uiManager.showNotification(`Error: ${error.message}`, 'error');
+        });
+    }
+    
+    updateMouseData(data) {
+        // Update mouse tracker
+        this.mouseTracker.updateMouseData(data);
+        
+        // Update UI
+        this.uiManager.updateMice(data.mice);
+        
+        // Update state
+        this.state.mode = data.mode;
+        this.state.activeMouse = data.activeMouse;
+        this.uiManager.updateMode(data.mode, data.activeMouse);
+    }
+    
+    // Server communication methods
+    async fetchServerStatus() {
+        try {
+            const response = await fetch('/api/status');
+            const data = await response.json();
+            
+            this.uiManager.updateServerInfo(data);
+            return data;
+        } catch (error) {
+            console.error('❌ Failed to fetch server status:', error);
+            return null;
+        }
+    }
+    
+    async fetchMouseData() {
+        try {
+            const response = await fetch('/api/mice');
+            const data = await response.json();
+            
+            this.updateMouseData(data);
+            return data;
+        } catch (error) {
+            console.error('❌ Failed to fetch mouse data:', error);
+            return null;
+        }
+    }
+    
+    // Public methods for UI callbacks
+    toggleMode() {
+        if (this.state.isHost && this.state.connected) {
+            this.socket.emit('toggleMode');
+            this.uiManager.showNotification('Mode toggle requested', 'info');
+        }
+    }
+    
+    clearData() {
+        this.uiManager.onClearData();
+        this.mouseTracker.clearCanvas();
+    }
+    
+    // Mouse tracking control
+    startMouseTracking() {
+        if (this.mouseTracker) {
+            this.mouseTracker.startTracking();
+            this.uiManager.updateMouseTrackingStatus(true);
+        }
+    }
+    
+    stopMouseTracking() {
+        if (this.mouseTracker) {
+            this.mouseTracker.stopTracking();
+            this.uiManager.updateMouseTrackingStatus(false);
+        }
+    }
+    
+    // Configuration methods
+    setTrackingSensitivity(sensitivity) {
+        if (this.mouseTracker) {
+            this.mouseTracker.setConfig({ trackingSensitivity: sensitivity });
+        }
+    }
+    
+    setVisualSettings(settings) {
+        if (this.mouseTracker) {
+            this.mouseTracker.setVisualSettings(settings);
+        }
+    }
+    
+    // Utility methods
+    getState() {
+        return { ...this.state };
+    }
+    
+    getConfig() {
+        return { ...this.config };
+    }
+    
+    // Cleanup
+    destroy() {
+        if (this.socket) {
+            this.socket.disconnect();
+        }
+        
+        if (this.mouseTracker) {
+            this.mouseTracker.stopTracking();
+        }
+        
+        console.log('🛑 App destroyed');
+    }
+}
+
+// Initialize app when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Initializing 3 Blind Mice Web App...');
+    window.app = new App();
+});
+
+// Handle page unload
+window.addEventListener('beforeunload', () => {
+    if (window.app) {
+        window.app.destroy();
+    }
+});
+
+// Handle visibility change (pause/resume tracking)
+document.addEventListener('visibilitychange', () => {
+    if (window.app) {
+        if (document.hidden) {
+            window.app.stopMouseTracking();
+        } else {
+            window.app.startMouseTracking();
+        }
+    }
+});
+
+// Handle online/offline events
+window.addEventListener('online', () => {
+    console.log('🌐 Back online');
+    if (window.app && !window.app.state.connected) {
+        window.app.connectToServer();
+    }
+});
+
+window.addEventListener('offline', () => {
+    console.log('📴 Gone offline');
+    if (window.app) {
+        window.app.stopMouseTracking();
+    }
+});
+
+// Periodic server status updates
+setInterval(() => {
+    if (window.app && window.app.state.connected) {
+        window.app.fetchServerStatus();
+    }
+}, 5000); // Update every 5 seconds
