@@ -15,6 +15,10 @@ void gui_update(double host_x, double host_y);
 // Close the GUI and free resources.
 void gui_close(void);
 
+// Optional UI text overlays
+void gui_set_mode_text(const char* mode_text);
+void gui_set_status_text(const char* status_text);
+
 #ifdef __cplusplus
 }
 #endif

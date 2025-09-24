@@ -8,8 +8,9 @@
  #include <pthread.h>
  #include "evdev_manager.h"
  #include "display_manager.h"
- #include "gui.h"
- #include "tray.h"
+#include "gui.h"
+#include "tray.h"
+#include "hipaa.h"
 
  #define MAX_MICE 128
 
@@ -66,6 +67,7 @@
      m->delta_x += dx;
      m->delta_y += dy;
      m->last_activity_ms = now_ms();
+    hipaa_log_input(device_id, dx, dy, m->last_activity_ms);
  }
 
  static void* keyboard_thread(void* arg) {
@@ -151,8 +153,9 @@
         printf("     sudo -E env DISPLAY=:0 XAUTHORITY=~$SUDO_USER/.Xauthority ./build/bin/ThreeBlindMiceC\n");
         return 1;
     }
-     tray_init("3 Blind Mice");
+    tray_init("3 Blind Mice");
      tray_set_mode("Fused");
+    hipaa_init("/var/log/threeblindmice");
 
      evdev_manager_t* mgr = evdev_manager_create();
      if (!mgr) { printf("❌ Failed to create evdev manager\n"); return 1; }
@@ -163,7 +166,7 @@
 
      printf("🎯 Event loop active (keys: m=toggle, i=list, a=active, Ctrl+C exit)\n");
      while (1) {
-         update_weights();
+        update_weights(); hipaa_rotate(1024*1024*5, 7);
          if (g_use_individual) {
              // pick most recently active mouse as active
              int64_t latest = -1; uint32_t active = 0;

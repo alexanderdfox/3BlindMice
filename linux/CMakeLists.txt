@@ -47,6 +47,7 @@ set(C_SOURCES
     src/c/display_manager.c
     src/c/gui.c
     src/c/tray.c
+    src/c/hipaa.c
     src/c/main.c
 )
 
@@ -57,6 +58,7 @@ add_library(ThreeBlindMiceLib SHARED
     src/c/display_manager.c
     src/c/gui.c
     src/c/tray.c
+    src/c/hipaa.c
 )
 set_target_properties(ThreeBlindMiceLib PROPERTIES
     OUTPUT_NAME "threeblindmice"

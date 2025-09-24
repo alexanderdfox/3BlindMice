@@ -10,6 +10,8 @@ static Window s_win = 0;
 static GC s_gc = 0;
 static int s_w = 800;
 static int s_h = 600;
+static char s_mode_text[128] = "";
+static char s_status_text[256] = "";
 
 int gui_init(int width, int height, const char* title) {
     if (s_dpy) return 1;
@@ -35,13 +37,25 @@ int gui_init(int width, int height, const char* title) {
 static void draw_scene(double host_x, double host_y) {
     if (!s_dpy || !s_win) return;
     XClearWindow(s_dpy, s_win);
+    // background gradient-like grid
+    XSetForeground(s_dpy, s_gc, 0xEEEEEE);
+    int grid = 50;
+    for (int x = 0; x <= s_w; x += grid) XDrawLine(s_dpy, s_win, s_gc, x, 0, x, s_h);
+    for (int y = 0; y <= s_h; y += grid) XDrawLine(s_dpy, s_win, s_gc, 0, y, s_w, y);
+
     // draw crosshair at scaled position
     double cx = (host_x / 1920.0) * (double)s_w;
     double cy = (host_y / 1080.0) * (double)s_h;
     int x = (int)(cx + 0.5);
     int y = (int)(cy + 0.5);
-    XDrawLine(s_dpy, s_win, s_gc, x - 10, y, x + 10, y);
-    XDrawLine(s_dpy, s_win, s_gc, x, y - 10, x, y + 10);
+    XSetForeground(s_dpy, s_gc, 0x333333);
+    XDrawLine(s_dpy, s_win, s_gc, x - 12, y, x + 12, y);
+    XDrawLine(s_dpy, s_win, s_gc, x, y - 12, x, y + 12);
+
+    // overlays
+    XSetForeground(s_dpy, s_gc, 0x111111);
+    if (s_mode_text[0]) XDrawString(s_dpy, s_win, s_gc, 10, 20, s_mode_text, (int)strlen(s_mode_text));
+    if (s_status_text[0]) XDrawString(s_dpy, s_win, s_gc, 10, 40, s_status_text, (int)strlen(s_status_text));
     XFlush(s_dpy);
 }
 
@@ -66,6 +80,16 @@ void gui_close(void) {
         XCloseDisplay(s_dpy);
         s_dpy = NULL;
     }
+}
+
+void gui_set_mode_text(const char* mode_text) {
+    if (!mode_text) { s_mode_text[0] = '\0'; return; }
+    snprintf(s_mode_text, sizeof(s_mode_text), "%s", mode_text);
+}
+
+void gui_set_status_text(const char* status_text) {
+    if (!status_text) { s_status_text[0] = '\0'; return; }
+    snprintf(s_status_text, sizeof(s_status_text), "%s", status_text);
 }
 
 
