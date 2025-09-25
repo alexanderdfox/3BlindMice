@@ -8,6 +8,20 @@ class MouseTracker {
         this.socket = socket;
         this.ctx = canvas.getContext('2d');
         
+        // Send screen dimensions to server
+        this.socket?.emit('screenDimensions', {
+            width: window.innerWidth,
+            height: window.innerHeight
+        });
+        
+        // Listen for window resize to update screen dimensions
+        window.addEventListener('resize', () => {
+            this.socket?.emit('screenDimensions', {
+                width: window.innerWidth,
+                height: window.innerHeight
+            });
+        });
+        
         // Mouse tracking state
         this.isTracking = false;
         this.lastPosition = { x: 0, y: 0 };

@@ -1307,11 +1307,10 @@ class MultiMouseManager: ObservableObject {
         
         // Toroidal wrap-around within the active display bounds
         if let display = displayManager.getDisplayAt(x: fusedPosition.x, y: fusedPosition.y) {
-            let frame = display.frame
-            let minX = frame.minX
-            let minY = frame.minY
-            let width = frame.width
-            let height = frame.height
+            let minX = CGFloat(display.x)
+            let minY = CGFloat(display.y)
+            let width = CGFloat(display.width)
+            let height = CGFloat(display.height)
             func wrap(_ value: CGFloat, _ start: CGFloat, _ size: CGFloat) -> CGFloat {
                 if size <= 0 { return start }
                 let local = value - start

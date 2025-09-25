@@ -49,14 +49,159 @@ const config = {
 // Host computer cursor position
 let hostCursorPosition = { x: 960, y: 540 }; // Start at screen center
 let hostVelocity = { x: 0, y: 0 }; // For physics mode
+let usePhysics = false; // 3-body physics mode
 let useIndividualMode = false;
-let activeMouseId = null;
+let activeMouseIds = new Set(); // Support multiple active mice
 let currentHostId = null;
-let usePhysics = false; // 3-body style fusion toggle
+// Event throttling and queuing
+const eventQueue = new Map(); // Per-client event queue
+const lastEventTime = new Map(); // Per-client last event time
+const EVENT_THROTTLE_MS = 16; // ~60 FPS max
+// Dynamic screen dimensions and scaling
+let screenDimensions = { width: 1920, height: 1080 }; // Default, will be updated by clients
+// Socket.IO connection management
+const connectionLimits = {
+    maxClients: 10,
+    maxConnectionsPerIP: 3,
+    connectionTimeout: 30000 // 30 seconds
+};
 
-console.log('🐭 3 Blind Mice Web Server Starting...');
-console.log(`📡 Port: ${config.port}`);
-console.log(`🎮 Host cursor control: ${config.enableHostCursorControl ? 'ENABLED' : 'DISABLED'}`);
+const ipConnections = new Map(); // Track connections per IP
+const connectionTimeouts = new Map(); // Track connection timeouts
+
+// Connection management functions
+function checkConnectionLimit(socket) {
+    const clientIP = socket.handshake.address;
+    const currentConnections = ipConnections.get(clientIP) || 0;
+    
+    if (currentConnections >= connectionLimits.maxConnectionsPerIP) {
+        console.log(`🚫 Connection limit exceeded for IP: ${clientIP}`);
+        return false;
+    }
+    
+    if (clients.size >= connectionLimits.maxClients) {
+        console.log(`🚫 Server connection limit exceeded: ${clients.size}/${connectionLimits.maxClients}`);
+        return false;
+    }
+    
+    return true;
+}
+
+function trackConnection(socket) {
+    const clientIP = socket.handshake.address;
+    const currentCount = ipConnections.get(clientIP) || 0;
+    ipConnections.set(clientIP, currentCount + 1);
+    
+    // Set connection timeout
+    const timeout = setTimeout(() => {
+        console.log(`⏰ Connection timeout for client: ${socket.id}`);
+        socket.disconnect(true);
+    }, connectionLimits.connectionTimeout);
+    
+    connectionTimeouts.set(socket.id, timeout);
+}
+
+function untrackConnection(socket) {
+    const clientIP = socket.handshake.address;
+    const currentCount = ipConnections.get(clientIP) || 0;
+    
+    if (currentCount > 0) {
+        ipConnections.set(clientIP, currentCount - 1);
+    }
+    
+    // Clear connection timeout
+    const timeout = connectionTimeouts.get(socket.id);
+    if (timeout) {
+        clearTimeout(timeout);
+        connectionTimeouts.delete(socket.id);
+    }
+}
+
+// Message queuing to prevent conflicts
+const messageQueue = new Map(); // Per-client message queue
+const MAX_QUEUE_SIZE = 50; // Max messages per client queue
+
+function queueMessage(clientId, event, data) {
+    if (!messageQueue.has(clientId)) {
+        messageQueue.set(clientId, []);
+    }
+    
+    const queue = messageQueue.get(clientId);
+    if (queue.length < MAX_QUEUE_SIZE) {
+        queue.push({ event, data, timestamp: Date.now() });
+    } else {
+        console.warn(`⚠️ Message queue full for client: ${clientId}`);
+    }
+}
+
+function processMessageQueue(clientId) {
+    const queue = messageQueue.get(clientId);
+    if (!queue || queue.length === 0) return;
+    
+    const clientInfo = clients.get(clientId);
+    if (!clientInfo || !clientInfo.socket) return;
+    
+    // Process messages in order
+    while (queue.length > 0) {
+        const message = queue.shift();
+        try {
+            clientInfo.socket.emit(message.event, message.data);
+        } catch (error) {
+            console.error(`❌ Error sending message to ${clientId}:`, error);
+        }
+    }
+}
+
+// Process mouse movement with proper event handling
+function processMouseMove(clientId, deltaX, deltaY) {
+    const currentTime = Date.now();
+    
+    // Update client activity
+    const clientInfo = clients.get(clientId);
+    if (clientInfo) {
+        clientInfo.lastActivity = currentTime;
+    }
+    
+    // Update mouse data
+    mouseData.set(clientId, {
+        deltaX: (mouseData.get(clientId)?.deltaX || 0) + deltaX,
+        deltaY: (mouseData.get(clientId)?.deltaY || 0) + deltaY,
+        timestamp: currentTime
+    });
+    
+    // Update mouse activity and weight
+    mouseActivity.set(clientId, currentTime);
+    updateMouseWeights();
+    
+    // Update individual mouse position
+    updateIndividualMousePosition(clientId, deltaX, deltaY);
+    
+    // Handle cursor movement based on mode
+    if (useIndividualMode) {
+        handleIndividualMode(clientId);
+    } else {
+        fuseAndMoveCursor();
+    }
+    
+    broadcastMouseUpdate();
+}
+
+// Clean up disconnected clients
+function cleanupClient(clientId) {
+    // Remove from active mice
+    activeMouseIds.delete(clientId);
+    
+    // Clear event queue
+    eventQueue.delete(clientId);
+    lastEventTime.delete(clientId);
+    
+    // Clear mouse data
+    mouseData.delete(clientId);
+    mousePositions.delete(clientId);
+    mouseActivity.delete(clientId);
+    mouseWeights.delete(clientId);
+    mouseRotations.delete(clientId);
+}
 
 // Serve main page
 app.get('/', (req, res) => {
@@ -83,14 +228,14 @@ app.get('/api/mice', (req, res) => {
         weight: mouseWeights.get(id) || 1.0,
         lastActivity: mouseActivity.get(id) || null,
         rotation: mouseRotations.get(id) || 0.0,
-        isActive: id === activeMouseId
+        isActive: activeMouseIds.has(id)
     }));
     
     res.json({
         mice,
         hostPosition: hostCursorPosition,
         mode: useIndividualMode ? 'individual' : 'fused',
-        activeMouse: activeMouseId,
+        activeMice: Array.from(activeMouseIds),
         hostId: currentHostId
     });
 });
@@ -102,6 +247,13 @@ function broadcastClientList() {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
+    // Check connection limits first
+    if (!checkConnectionLimit(socket)) {
+        socket.emit('connectionRejected', { reason: 'Connection limit exceeded' });
+        socket.disconnect(true);
+        return;
+    }
+    
     const clientId = uuidv4();
     const remote = socket.handshake.address || (socket.request && socket.request.socket && socket.request.socket.remoteAddress) || 'unknown';
     const clientInfo = {
@@ -114,6 +266,9 @@ io.on('connection', (socket) => {
     };
     
     console.log(`🔌 Client connected: ${clientId} from ${remote}`);
+    
+    // Track connection
+    trackConnection(socket);
     
     // Designate a host if none exists
     if (!currentHostId) {
@@ -144,11 +299,11 @@ io.on('connection', (socket) => {
             weight: mouseWeights.get(id) || 1.0,
             lastActivity: mouseActivity.get(id) || null,
             rotation: mouseRotations.get(id) || 0.0,
-            isActive: id === activeMouseId
+            isActive: activeMouseIds.has(id)
         })),
         hostPosition: hostCursorPosition,
         mode: useIndividualMode ? 'individual' : 'fused',
-        activeMouse: activeMouseId,
+        activeMice: Array.from(activeMouseIds),
         hostId: currentHostId
     });
     
@@ -167,48 +322,61 @@ io.on('connection', (socket) => {
         broadcastClientList();
     });
     
-    // Handle mouse movement
+    // Handle screen dimension updates
+    socket.on('screenDimensions', (data) => {
+        const { width, height } = data;
+        screenDimensions = { width, height };
+        coordinateScale.set(clientId, {
+            scaleX: width / 1920,
+            scaleY: height / 1080
+        });
+        console.log(`📐 Client ${clientId} screen: ${width}x${height}`);
+    });
+    
+    // Handle mouse movement with throttling
     socket.on('mouseMove', (data) => {
         const { deltaX, deltaY, timestamp } = data;
-        const currentTime = new Date();
+        const currentTime = Date.now();
         
-        // Update client activity
-        clientInfo.lastActivity = currentTime;
-        
-        // Update mouse data
-        mouseData.set(clientId, {
-            deltaX: (mouseData.get(clientId)?.deltaX || 0) + deltaX,
-            deltaY: (mouseData.get(clientId)?.deltaY || 0) + deltaY,
-            timestamp
-        });
-        
-        // Update mouse activity and weight
-        mouseActivity.set(clientId, currentTime);
-        updateMouseWeights();
-        
-        // Update individual mouse position
-        updateIndividualMousePosition(clientId, deltaX, deltaY);
-        
-        // Handle cursor movement based on mode
-        if (useIndividualMode) {
-            handleIndividualMode(clientId);
-        } else {
-            fuseAndMoveCursor();
+        // Throttle events to prevent spam
+        const lastTime = lastEventTime.get(clientId) || 0;
+        if (currentTime - lastTime < EVENT_THROTTLE_MS) {
+            // Queue the event instead of dropping it
+            if (!eventQueue.has(clientId)) {
+                eventQueue.set(clientId, []);
+            }
+            const queue = eventQueue.get(clientId);
+            if (queue.length < MAX_QUEUE_SIZE) {
+                queue.push({ deltaX, deltaY, timestamp });
+            }
+            return;
         }
         
-        // Broadcast updated data to all clients
-        broadcastMouseUpdate();
+        lastEventTime.set(clientId, currentTime);
+        
+        // Process queued events first
+        if (eventQueue.has(clientId)) {
+            const queue = eventQueue.get(clientId);
+            while (queue.length > 0) {
+                const queuedEvent = queue.shift();
+                processMouseMove(clientId, queuedEvent.deltaX, queuedEvent.deltaY);
+            }
+        }
+        
+        // Process current event
+        processMouseMove(clientId, deltaX, deltaY);
     });
     
     // Handle mode toggle (only host can toggle)
     socket.on('toggleMode', () => {
         if (clientId === currentHostId) {
             useIndividualMode = !useIndividualMode;
-            activeMouseId = useIndividualMode ? null : activeMouseId;
+            // Clear active mice when switching modes
+            activeMouseIds.clear();
             console.log(`🔄 Mode switched to: ${useIndividualMode ? 'Individual' : 'Fused'}`);
             io.emit('modeChanged', {
                 mode: useIndividualMode ? 'individual' : 'fused',
-                activeMouse: activeMouseId
+                activeMice: Array.from(activeMouseIds)
             });
         }
     });
@@ -283,10 +451,11 @@ io.on('connection', (socket) => {
             }
         }
         
-        // If this was the active mouse, clear it
-        if (activeMouseId === clientId) {
-            activeMouseId = null;
-        }
+        // Clean up client data
+        cleanupClient(clientId);
+        
+        // Untrack connection
+        untrackConnection(socket);
         
         broadcastClientList();
         broadcastMouseUpdate();
@@ -310,25 +479,38 @@ function updateMouseWeights() {
 
 // Update individual mouse position
 function updateIndividualMousePosition(clientId, deltaX, deltaY) {
-    const currentPos = mousePositions.get(clientId) || { x: 960, y: 540 }; // Start at screen center
+    const currentPos = mousePositions.get(clientId) || { x: screenDimensions.width / 2, y: screenDimensions.height / 2 };
     const newX = currentPos.x + deltaX;
     const newY = currentPos.y + deltaY;
-    // Toroidal wrap-around within 1920x1080 logical space
-    const width = 1920;
-    const height = 1080;
-    const wrappedX = ((newX % width) + width) % width;
-    const wrappedY = ((newY % height) + height) % height;
+    
+    // Apply toroidal wrap-around
+    const wrappedX = ((newX % screenDimensions.width) + screenDimensions.width) % screenDimensions.width;
+    const wrappedY = ((newY % screenDimensions.height) + screenDimensions.height) % screenDimensions.height;
     mousePositions.set(clientId, { x: wrappedX, y: wrappedY });
 }
 
-// Handle individual mode
+// Handle individual mode - support multiple active mice
 function handleIndividualMode(clientId) {
-    activeMouseId = clientId;
+    // Add to active mice set
+    activeMouseIds.add(clientId);
+    
     if (config.enableHostCursorControl && robot) {
         const position = mousePositions.get(clientId);
         if (position) {
-            hostCursorPosition = position;
-            try { robot.moveMouse(Math.round(position.x), Math.round(position.y)); } catch (e) {}
+            // Use weighted average of all active mice positions
+            let totalX = 0, totalY = 0, count = 0;
+            for (const activeId of activeMouseIds) {
+                const activePos = mousePositions.get(activeId);
+                if (activePos) {
+                    totalX += activePos.x;
+                    totalY += activePos.y;
+                    count++;
+                }
+            }
+            if (count > 0) {
+                hostCursorPosition = { x: totalX / count, y: totalY / count };
+                try { robot.moveMouse(Math.round(hostCursorPosition.x), Math.round(hostCursorPosition.y)); } catch (e) {}
+            }
         }
     }
     // Clear deltas after processing
@@ -374,10 +556,8 @@ function fuseAndMoveCursor() {
         hostCursorPosition.y = hostCursorPosition.y * (1 - smoothing) + (hostCursorPosition.y + avgY) * smoothing;
     }
     // Toroidal wrap-around for host cursor position
-    const width = 1920;
-    const height = 1080;
-    hostCursorPosition.x = ((hostCursorPosition.x % width) + width) % width;
-    hostCursorPosition.y = ((hostCursorPosition.y % height) + height) % height;
+    hostCursorPosition.x = ((hostCursorPosition.x % screenDimensions.width) + screenDimensions.width) % screenDimensions.width;
+    hostCursorPosition.y = ((hostCursorPosition.y % screenDimensions.height) + screenDimensions.height) % screenDimensions.height;
     if (config.enableHostCursorControl && robot) {
         try { robot.moveMouse(Math.round(hostCursorPosition.x), Math.round(hostCursorPosition.y)); } catch (e) {}
     }
@@ -392,13 +572,13 @@ function broadcastMouseUpdate() {
         weight: mouseWeights.get(id) || 1.0,
         lastActivity: mouseActivity.get(id) || null,
         rotation: mouseRotations.get(id) || 0.0,
-        isActive: id === activeMouseId
+        isActive: activeMouseIds.has(id)
     }));
     io.emit('mouseUpdate', {
         mice,
         hostPosition: hostCursorPosition,
         mode: useIndividualMode ? 'individual' : 'fused',
-        activeMouse: activeMouseId,
+        activeMice: Array.from(activeMouseIds),
         hostId: currentHostId
     });
 }
