@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3 Blind Mice - Web Multi-Mouse Control</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐭</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="emoji">🐭</span>
+                <h1>3 Blind Mice</h1>
+            </div>
+            <div class="subtitle">Web Multi-Mouse Triangulation</div>
+        </header>
+
+        <!-- Connection Status -->
+        <div class="status-card">
+            <div class="status-header">
+                <h2>Connection Status</h2>
+                <div class="connection-indicator" id="connectionIndicator">
+                    <span class="status-dot disconnected"></span>
+                    <span class="status-text">Disconnected</span>
+                </div>
+            </div>
+            
+            <div class="status-info" id="statusInfo">
+                <div class="info-item">
+                    <span class="label">Client ID:</span>
+                    <span class="value" id="clientId">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Role:</span>
+                    <span class="value" id="clientRole">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Connected Mice:</span>
+                    <span class="value" id="connectedMice">0</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Mode:</span>
+                    <span class="value" id="currentMode">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Server URL:</span>
+                    <span class="value" id="serverUrlDisplay">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mouse Tracking Area -->
+        <div class="mouse-area" id="mouseArea">
+            <div class="mouse-area-header">
+                <h3>Mouse Tracking</h3>
+                <div class="controls">
+                    <button id="toggleMode" class="btn btn-secondary" disabled>
+                        <span class="btn-icon">🔄</span>
+                        Toggle Mode
+                    </button>
+                    <button id="togglePhysics" class="btn btn-secondary" disabled>
+                        <span class="btn-icon">🪐</span>
+                        3-Body Off
+                    </button>
+                    <button id="clearData" class="btn btn-danger">
+                        <span class="btn-icon">🗑️</span>
+                        Clear Data
+                    </button>
+                    <button id="toggleFullscreen" class="btn btn-primary">
+                        <span class="btn-icon">⛶</span>
+                        Full Screen
+                    </button>
+                    <button id="toggleCameras" class="btn btn-secondary">
+                        <span class="btn-icon">📷</span>
+                        Cameras
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mouse-canvas-container">
+                <canvas id="mouseCanvas" width="800" height="600"></canvas>
+                <div class="canvas-overlay">
+                    <div class="instructions">
+                        <p>Move your mouse here to control the shared cursor</p>
+                        <p class="mode-info" id="modeInfo">Waiting for connection...</p>
+                    </div>
+                </div>
+                <div id="cameraGrid" class="camera-grid hidden"></div>
+            </div>
+        </div>
+
+        <!-- Mouse List -->
+        <div class="mouse-list-card">
+            <h3>Connected Mice</h3>
+            <div class="mouse-list" id="mouseList">
+                <div class="no-mice">No mice connected</div>
+            </div>
+        </div>
+
+        <!-- Server Info -->
+        <div class="server-info-card">
+            <h3>Server Information</h3>
+            <div class="server-stats" id="serverStats">
+                <div class="stat">
+                    <span class="stat-label">Server Time:</span>
+                    <span class="stat-value" id="serverTime">-</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Host Cursor Control:</span>
+                    <span class="stat-value" id="hostCursorControl">-</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total Clients:</span>
+                    <span class="stat-value" id="totalClients">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions-card">
+            <h3>How to Use</h3>
+            <div class="instructions-content">
+                <div class="instruction-step">
+                    <span class="step-number">1</span>
+                    <p>Open this page on multiple computers/devices</p>
+                </div>
+                <div class="instruction-step">
+                    <span class="step-number">2</span>
+                    <p>One computer will be designated as the "host"</p>
+                </div>
+                <div class="instruction-step">
+                    <span class="step-number">3</span>
+                    <p>Move your mouse in the tracking area to control the shared cursor</p>
+                </div>
+                <div class="instruction-step">
+                    <span class="step-number">4</span>
+                    <p>Use "Toggle Mode" to switch between Individual and Fused control</p>
+                </div>
+                <div class="instruction-step">
+                    <span class="step-number">5</span>
+                    <p>In Individual mode, only the most recently moved mouse controls the cursor</p>
+                </div>
+                <div class="instruction-step">
+                    <span class="step-number">6</span>
+                    <p>In Fused mode, all mouse movements are averaged together</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>Connecting to server...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="socket-loader.js"></script>
+    <script src="mouse-tracker.js"></script>
+    <script src="ui-manager.js"></script>
+    <script src="config.js"></script>
+    <script>
+    (async function(){
+        try {
+            await window.__ensureSocketIoClient();
+        } catch(e) {}
+        var s = document.createElement('script');
+        s.src = 'app.js';
+        s.defer = true;
+        document.body.appendChild(s);
+    })();
+    </script>
+</body>
+</html>
