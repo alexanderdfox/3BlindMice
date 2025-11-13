@@ -45,6 +45,17 @@ class MouseTracker {
         this.cursorRotation = 0.0; // Current cursor rotation in degrees
         this.physicsEnabled = false; // 3-body style fusion toggle (server authoritative)
         
+        // Collision effects
+        this.collisionThreshold = 40; // Pixels on canvas after scaling
+        this.collisionCooldown = 800; // Milliseconds between collision effects for same pair
+        this.explosionDuration = 600; // Milliseconds explosion stays on screen
+        this.collisionPairs = new Map(); // Track last collision time per mouse pair
+        this.activeExplosions = [];
+        this.audioContext = null;
+        this.audioInitialized = false;
+        this.lastCollisionSoundTime = 0;
+        this.collisionSoundCooldown = 150; // ms between collision sounds
+        
         // Visual settings
         this.visualSettings = {
             showTrails: true,
@@ -101,6 +112,7 @@ class MouseTracker {
     setupEventListeners() {
         // Mouse movement tracking
         this.canvas.addEventListener('mousemove', (e) => {
+            this.ensureAudioContext();
             if (!this.isTracking) return;
             
             const rect = this.canvas.getBoundingClientRect();
@@ -114,6 +126,7 @@ class MouseTracker {
         
         // Mouse enter/leave
         this.canvas.addEventListener('mouseenter', () => {
+            this.ensureAudioContext();
             this.isTracking = true;
         });
         
@@ -123,6 +136,7 @@ class MouseTracker {
         
         // Mouse click events
         this.canvas.addEventListener('mousedown', (e) => {
+            this.ensureAudioContext();
             if (!this.isTracking) return;
             
             const button = this.getMouseButton(e.button);
@@ -146,6 +160,7 @@ class MouseTracker {
         
         // Touch support for mobile devices
         this.canvas.addEventListener('touchmove', (e) => {
+            this.ensureAudioContext();
             if (!this.isTracking) return;
             
             e.preventDefault();
@@ -160,6 +175,7 @@ class MouseTracker {
         });
         
         this.canvas.addEventListener('touchstart', (e) => {
+            this.ensureAudioContext();
             this.isTracking = true;
         });
         
@@ -260,9 +276,11 @@ class MouseTracker {
         const render = () => {
             this.clearCanvas();
             this.drawBackground();
+            this.checkCollisions();
             this.drawMouseTrails();
             this.drawMouseCursors();
             this.drawHostCursor();
+            this.drawExplosions();
             this.drawInfo();
             requestAnimationFrame(render);
         };
@@ -382,6 +400,37 @@ class MouseTracker {
         this.ctx.fillText(`${Math.round(rotation)}°`, x, y + (size * 2) + 26);
     }
     
+    drawExplosions() {
+        if (this.activeExplosions.length === 0) return;
+        
+        const now = Date.now();
+        const remaining = [];
+        
+        for (const explosion of this.activeExplosions) {
+            const elapsed = now - explosion.startTime;
+            if (elapsed > this.explosionDuration) {
+                continue;
+            }
+            
+            const progress = elapsed / this.explosionDuration;
+            const alpha = Math.max(0, 1 - progress);
+            const scale = 1 + progress * 1.5;
+            const size = 36 * scale;
+            
+            this.ctx.save();
+            this.ctx.globalAlpha = alpha;
+            this.ctx.font = `${size}px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText('💥', explosion.x, explosion.y);
+            this.ctx.restore();
+            
+            remaining.push(explosion);
+        }
+        
+        this.activeExplosions = remaining;
+    }
+    
     drawHostCursor() {
         // Draw host cursor position
         const canvasX = (this.hostPosition.x / 1920) * this.canvas.width;
@@ -432,6 +481,133 @@ class MouseTracker {
             `Host: (${Math.round(this.hostPosition.x)}, ${Math.round(this.hostPosition.y)})`,
             10, this.canvas.height - 20
         );
+    }
+
+    ensureAudioContext() {
+        if (this.audioInitialized) {
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+                this.audioContext.resume().catch(() => {});
+            }
+            return;
+        }
+        
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) {
+            console.warn('🔇 Web Audio API not supported in this browser.');
+            this.audioInitialized = true;
+            return;
+        }
+        
+        try {
+            this.audioContext = new AudioCtx();
+            this.audioInitialized = true;
+        } catch (error) {
+            console.warn('🔇 Failed to initialize AudioContext:', error);
+            this.audioInitialized = true;
+        }
+    }
+    
+    getCanvasCoordinates(position) {
+        return {
+            x: (position.x / 1920) * this.canvas.width,
+            y: (position.y / 1080) * this.canvas.height
+        };
+    }
+    
+    checkCollisions() {
+        const entries = Array.from(this.mousePositions.entries());
+        if (entries.length < 2) return;
+        
+        const now = Date.now();
+        
+        for (let i = 0; i < entries.length - 1; i++) {
+            const [idA, posA] = entries[i];
+            const canvasA = this.getCanvasCoordinates(posA);
+            
+            for (let j = i + 1; j < entries.length; j++) {
+                const [idB, posB] = entries[j];
+                const canvasB = this.getCanvasCoordinates(posB);
+                
+                const dx = canvasA.x - canvasB.x;
+                const dy = canvasA.y - canvasB.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > this.collisionThreshold) continue;
+                
+                const pairKey = [idA, idB].sort().join('|');
+                const lastCollision = this.collisionPairs.get(pairKey) || 0;
+                
+                if (now - lastCollision >= this.collisionCooldown) {
+                    this.collisionPairs.set(pairKey, now);
+                    const explosionX = (canvasA.x + canvasB.x) / 2;
+                    const explosionY = (canvasA.y + canvasB.y) / 2;
+                    this.triggerCollisionEffect(explosionX, explosionY);
+                }
+            }
+        }
+        
+        for (const [pairKey, timestamp] of this.collisionPairs.entries()) {
+            if (now - timestamp > this.collisionCooldown * 2) {
+                this.collisionPairs.delete(pairKey);
+            }
+        }
+    }
+    
+    triggerCollisionEffect(x, y) {
+        this.activeExplosions.push({ x, y, startTime: Date.now() });
+        if (this.activeExplosions.length > 12) {
+            this.activeExplosions.shift();
+        }
+        this.playCollisionSound();
+    }
+    
+    playCollisionSound() {
+        const now = Date.now();
+        if (now - this.lastCollisionSoundTime < this.collisionSoundCooldown) return;
+        this.lastCollisionSoundTime = now;
+        
+        this.ensureAudioContext();
+        const ctx = this.audioContext;
+        if (!ctx) return;
+        
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+        
+        const currentTime = ctx.currentTime;
+        
+        // Noise burst component
+        const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+            const decay = 1 - i / data.length;
+            data[i] = (Math.random() * 2 - 1) * decay * 0.8;
+        }
+        
+        const noiseSource = ctx.createBufferSource();
+        noiseSource.buffer = noiseBuffer;
+        
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.3, currentTime);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, currentTime + 0.3);
+        
+        noiseSource.connect(noiseGain).connect(ctx.destination);
+        noiseSource.start(currentTime);
+        noiseSource.stop(currentTime + 0.3);
+        
+        // Low-frequency boom
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, currentTime + 0.4);
+        
+        const oscGain = ctx.createGain();
+        oscGain.gain.setValueAtTime(0.18, currentTime);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, currentTime + 0.4);
+        
+        osc.connect(oscGain).connect(ctx.destination);
+        osc.start(currentTime);
+        osc.stop(currentTime + 0.4);
     }
     
     getActiveMouseId() {
