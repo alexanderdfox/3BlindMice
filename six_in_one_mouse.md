@@ -116,8 +116,7 @@ Different modes allow comfort‑based control like low‑force, gesture‑only, 
 
 ---
 
-## Want More?
-I can add:
+## Todo:
 - Technical schematics
 - A PCB wiring diagram
 - Industrial design sketches
