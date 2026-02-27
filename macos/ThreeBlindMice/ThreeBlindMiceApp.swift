@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import IOKit.hid
 import CoreGraphics
+import QuartzCore
 
 // MARK: - Display Manager
 /// Display information structure
@@ -151,6 +152,197 @@ public class DisplayManager {
     }
 }
 
+// MARK: - Emoji Cursor Overlay
+/// Transparent overlay windows showing emoji cursors for each mouse, always on top.
+final class EmojiCursorOverlayManager {
+    private var cursorWindows: [String: NSWindow] = [:]
+    private var fusedWindow: NSWindow?
+    private let cursorSize: CGFloat = 36
+    private var isShowing = false
+    private var displayLink: CVDisplayLink?
+    private weak var multiMouseManager: MultiMouseManager?
+    private weak var emojiManager: EmojiManager?
+    
+    init(multiMouseManager: MultiMouseManager, emojiManager: EmojiManager) {
+        self.multiMouseManager = multiMouseManager
+        self.emojiManager = emojiManager
+    }
+    
+    func show() {
+        DispatchQueue.main.async {
+            self.isShowing = true
+            self.startDisplayLink()
+        }
+    }
+    
+    func hide() {
+        DispatchQueue.main.async {
+            self.isShowing = false
+            self.stopDisplayLink()
+            self.removeAllWindows()
+        }
+    }
+    
+    private func startDisplayLink() {
+        var link: CVDisplayLink?
+        CVDisplayLinkCreateWithActiveCGDisplays(&link)
+        guard let displayLink = link else { return }
+        self.displayLink = displayLink
+        
+        CVDisplayLinkSetOutputCallback(displayLink, { _, _, _, _, _, context -> CVReturn in
+            guard let context = context else { return kCVReturnError }
+            let manager = Unmanaged<EmojiCursorOverlayManager>.fromOpaque(context).takeUnretainedValue()
+            // Defer to next run loop iteration to avoid layout recursion (layoutSubtreeIfNeeded during layout)
+            DispatchQueue.main.async {
+                DispatchQueue.main.async { manager.updateOverlays() }
+            }
+            return kCVReturnSuccess
+        }, Unmanaged.passUnretained(self).toOpaque())
+        CVDisplayLinkStart(displayLink)
+    }
+    
+    private func stopDisplayLink() {
+        if let link = displayLink {
+            CVDisplayLinkStop(link)
+        }
+        displayLink = nil
+    }
+    
+    private func updateOverlays() {
+        guard isShowing,
+              let multiMouse = multiMouseManager, let emojiMgr = emojiManager else {
+            if !isShowing { removeAllWindows() }
+            return
+        }
+        let data = multiMouse.getOverlayData()
+        
+        // Real cursor stays with first mouse position
+        multiMouse.warpCursorToCurrentPosition()
+        
+        let sortedIds = data.individual.keys.sorted()
+        if data.useIndividual {
+            // Individual mode: all mice get emoji overlays; first mouse also has real cursor warped underneath
+            for deviceId in sortedIds {
+                guard let position = data.individual[deviceId] else { continue }
+                let emoji = emojiMgr.getEmoji(for: deviceId)
+                let rotation = data.individualRotations[deviceId] ?? 0.0
+                updateOrCreateWindow(deviceId: deviceId, position: position, emoji: emoji, rotation: rotation)
+            }
+            removeFusedWindow()
+            let overlayIds = Set(sortedIds)
+            for id in cursorWindows.keys where !overlayIds.contains(id) {
+                cursorWindows[id]?.orderOut(nil)
+                cursorWindows.removeValue(forKey: id)
+            }
+        } else {
+            // Fused / 3-body mode: real cursor at fused position, emoji for ALL mice at their positions
+            for deviceId in sortedIds {
+                guard let position = data.individual[deviceId] else { continue }
+                let emoji = emojiMgr.getEmoji(for: deviceId)
+                let rotation = data.individualRotations[deviceId] ?? 0.0
+                updateOrCreateWindow(deviceId: deviceId, position: position, emoji: emoji, rotation: rotation)
+            }
+            removeFusedWindow()
+            let overlayIds = Set(sortedIds)
+            for id in cursorWindows.keys where !overlayIds.contains(id) {
+                cursorWindows[id]?.orderOut(nil)
+                cursorWindows.removeValue(forKey: id)
+            }
+        }
+    }
+    
+    private func updateOrCreateWindow(deviceId: String, position: CGPoint, emoji: String, rotation: Double = 0) {
+        let origin = convertToWindowOrigin(position)
+        if let window = cursorWindows[deviceId] {
+            window.setFrameOrigin(origin)
+            updateEmojiView(in: window, emoji: emoji, rotation: rotation)
+            window.orderFrontRegardless()
+        } else {
+            let window = makeCursorWindow(emoji: emoji, rotation: rotation)
+            window.setFrameOrigin(origin)
+            window.orderFrontRegardless()
+            cursorWindows[deviceId] = window
+        }
+    }
+    
+    private func updateEmojiView(in window: NSWindow, emoji: String, rotation: Double) {
+        guard let label = window.contentView?.subviews.first as? NSTextField,
+              let layer = label.layer else { return }
+        label.stringValue = emoji
+        label.wantsLayer = true
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        layer.position = CGPoint(x: cursorSize / 2, y: cursorSize / 2)
+        layer.bounds = CGRect(x: 0, y: 0, width: cursorSize, height: cursorSize)
+        layer.setAffineTransform(CGAffineTransform(rotationAngle: CGFloat(rotation * .pi / 180)))
+        CATransaction.commit()
+    }
+    
+    private func convertToWindowOrigin(_ screenPoint: CGPoint) -> NSPoint {
+        // Screen coords: origin bottom-left. Window frame origin is bottom-left.
+        // Center the cursor on the point.
+        return NSPoint(x: screenPoint.x - cursorSize / 2, y: screenPoint.y - cursorSize / 2)
+    }
+    
+    private func makeCursorWindow(emoji: String, rotation: Double = 0) -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: cursorSize, height: cursorSize),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
+        window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        
+        let label = NSTextField(labelWithString: emoji)
+        label.font = NSFont(name: "Apple Color Emoji", size: 28) ?? NSFont.systemFont(ofSize: 28)
+        label.textColor = .black
+        label.backgroundColor = .clear
+        label.drawsBackground = false
+        label.isBordered = false
+        label.frame = NSRect(x: 0, y: 0, width: cursorSize, height: cursorSize)
+        label.alignment = .center
+        label.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin, .maxYMargin]
+        label.wantsLayer = true
+        // Center pivot for rotation around emoji center
+        label.layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        label.layer?.position = CGPoint(x: cursorSize / 2, y: cursorSize / 2)
+        label.layer?.bounds = CGRect(x: 0, y: 0, width: cursorSize, height: cursorSize)
+        let radians = CGFloat(rotation * .pi / 180)
+        label.layer?.setAffineTransform(CGAffineTransform(rotationAngle: radians))
+        
+        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: cursorSize, height: cursorSize))
+        contentView.wantsLayer = true
+        contentView.layer?.backgroundColor = CGColor.clear
+        contentView.addSubview(label)
+        
+        window.contentView = contentView
+        return window
+    }
+    
+    private func removeAllWindows() {
+        removeIndividualWindows()
+        removeFusedWindow()
+    }
+    
+    private func removeIndividualWindows() {
+        for (_, window) in cursorWindows {
+            window.orderOut(nil)
+        }
+        cursorWindows.removeAll()
+    }
+    
+    private func removeFusedWindow() {
+        fusedWindow?.orderOut(nil)
+        fusedWindow = nil
+    }
+}
+
 // MARK: - Notification Extensions
 extension Notification.Name {
     static let emojiUpdated = Notification.Name("emojiUpdated")
@@ -172,9 +364,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     private var popover: NSPopover!
     var multiMouseManager: MultiMouseManager!
     var emojiManager: EmojiManager!
+    private var cursorOverlay: EmojiCursorOverlayManager!
     @Published var isActive = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Single-instance: prevent Metal flock conflict (errno 35) from multiple copies
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.threeblindmice.app"
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
+        let otherInstances = running.filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+        if !otherInstances.isEmpty {
+            otherInstances.first?.activate(options: .activateIgnoringOtherApps)
+            NSApp.terminate(nil)
+            return
+        }
+
         // Hide the dock icon
         NSApp.setActivationPolicy(.accessory)
         
@@ -200,9 +403,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         popover.behavior = .transient
         popover.contentViewController = NSHostingController(rootView: ControlPanelView(appDelegate: self))
         
-        // Initialize multi-mouse manager
+        // Initialize multi-mouse manager and emoji manager
         multiMouseManager = MultiMouseManager()
         emojiManager = EmojiManager()
+        cursorOverlay = EmojiCursorOverlayManager(multiMouseManager: multiMouseManager, emojiManager: emojiManager)
         
         // Start the application
         print("3 Blind Mice - Multi-Mouse Triangulation")
@@ -223,7 +427,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         isActive.toggle()
         if isActive {
             multiMouseManager.start()
+            cursorOverlay.show()
         } else {
+            cursorOverlay.hide()
             multiMouseManager.stop()
         }
     }
@@ -369,7 +575,7 @@ struct ControlPanelView: View {
         .onAppear {
             physicsBlendValue = (appDelegate.multiMouseManager?.physicsEnabled ?? false) ? 1.0 : 0.0
             Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-                updateUI()
+                DispatchQueue.main.async { updateUI() }
             }
         }
     }
@@ -401,7 +607,7 @@ struct ControlPanelView: View {
 struct HeaderView: View {
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: "cursorarrow.fill")
+            Image(systemName: "cursorarrow")
                 .font(.system(size: 40))
                 .foregroundColor(.blue)
             
@@ -847,6 +1053,7 @@ struct EmojiSettingsView: View {
 class MultiMouseManager: ObservableObject {
     // MARK: - Private Properties
     private var hidManager: IOHIDManager!
+    private var hasExclusiveHIDAccess = false // true when device seized; we must post synthetic clicks
     private var mouseDeltas: [IOHIDDevice: (x: Int, y: Int)] = [:]
     private var mousePositions: [IOHIDDevice: CGPoint] = [:] // Individual mouse positions
     private var mouseWeights: [IOHIDDevice: Double] = [:]
@@ -888,18 +1095,8 @@ class MultiMouseManager: ObservableObject {
             forName: .emojiUpdated,
             object: nil,
             queue: .main
-        ) { [weak self] notification in
-            guard let self = self,
-                  let deviceString = notification.object as? String,
-                  self.useIndividualMode,
-                  let activeMouse = self.activeMouse,
-                  String(describing: activeMouse) == deviceString else { return }
-            
-            // Update cursor for the active mouse
-            if let emojiManager = (NSApplication.shared.delegate as? AppDelegate)?.emojiManager {
-                let emoji = emojiManager.getEmoji(for: deviceString)
-                self.setCustomCursor(for: activeMouse, emoji: emoji)
-            }
+        ) { _ in
+            // Emoji shown in overlay for additional mice; keep default cursor
         }
     }
     
@@ -922,6 +1119,7 @@ class MultiMouseManager: ObservableObject {
         IOHIDManagerRegisterInputValueCallback(hidManager, inputCallback, UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()))
         IOHIDManagerScheduleWithRunLoop(hidManager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
         
+        // Open with shared access initially; seizure happens in start() when user presses Start
         let result = IOHIDManagerOpen(hidManager, IOOptionBits(kIOHIDOptionsTypeNone))
         if result != kIOReturnSuccess {
             print("❌ Failed to open HID Manager")
@@ -962,6 +1160,7 @@ class MultiMouseManager: ObservableObject {
     }
     
     func start() {
+        // Use shared access—seizing prevents mouse detection on many setups
         isRunning = true
         print("Enhanced multi-mouse triangulation started")
         print("Features: Weighted averaging, activity tracking, smoothing")
@@ -1038,23 +1237,8 @@ class MultiMouseManager: ObservableObject {
     
     private func updateCursorRotation(device: IOHIDDevice) {
         guard let rotation = mouseRotations[device] else { return }
-        
-        // Update cursor rotation
         cursorRotation = rotation
-        
-        // Update cursor if this is the active mouse
-        if useIndividualMode && device == activeMouse {
-            let deviceString = String(describing: device)
-            if let emojiManager = (NSApplication.shared.delegate as? AppDelegate)?.emojiManager {
-                let emoji = emojiManager.getEmoji(for: deviceString)
-                setCustomCursor(for: device, emoji: emoji)
-            }
-        }
-        
-        // In fused mode, update cursor for all mice (use weighted average)
-        if !useIndividualMode {
-            updateFusedCursorRotation()
-        }
+        if !useIndividualMode { updateFusedCursorRotation() }
     }
     
     private func updateFusedCursorRotation() {
@@ -1168,18 +1352,63 @@ class MultiMouseManager: ObservableObject {
                     mouseRotations[device]! += 360.0
                 }
                 
-                // Update cursor rotation
                 updateCursorRotation(device: device)
+                postScrollEvent(device: device, delta: Int32(intValue))
             }
+        } else if usagePage == UInt32(kHIDPage_Button) {
+            // Mouse buttons: 1=left, 2=right, 3=middle
+            let buttonNum = Int(usage)
+            guard buttonNum >= 1 && buttonNum <= 3 else { return }
+            let value = IOHIDValueGetIntegerValue(value)
+            let device = IOHIDElementGetDevice(element)
+            let isDown = (value == 1)
+            postMouseButtonEvent(device: device, button: buttonNum, isDown: isDown)
         }
+    }
+    
+    /// Post synthetic mouse down/up at this mouse's position (so clicks land under emoji).
+    private func postMouseButtonEvent(device: IOHIDDevice, button: Int, isDown: Bool) {
+        guard hasExclusiveHIDAccess else { return }
+        let position: CGPoint
+        if useIndividualMode, let pos = mousePositions[device] {
+            position = pos
+        } else {
+            position = fusedPosition
+        }
+        let (downType, upType, cgButton): (CGEventType, CGEventType, CGMouseButton)
+        switch button {
+        case 1: (downType, upType, cgButton) = (.leftMouseDown, .leftMouseUp, .left)
+        case 2: (downType, upType, cgButton) = (.rightMouseDown, .rightMouseUp, .right)
+        default: (downType, upType, cgButton) = (.otherMouseDown, .otherMouseUp, .center)
+        }
+        let eventType = isDown ? downType : upType
+        guard let event = CGEvent(mouseEventSource: nil, mouseType: eventType, mouseCursorPosition: position, mouseButton: cgButton) else { return }
+        event.setIntegerValueField(.mouseEventClickState, value: 1)
+        event.post(tap: .cghidEventTap)
+    }
+    
+    /// Post synthetic scroll at this mouse's position (so scroll lands under emoji).
+    private func postScrollEvent(device: IOHIDDevice, delta: Int32) {
+        guard hasExclusiveHIDAccess else { return }
+        let position: CGPoint
+        if useIndividualMode, let pos = mousePositions[device] {
+            position = pos
+        } else {
+            position = fusedPosition
+        }
+        guard let event = CGEvent(scrollWheelEvent2Source: nil, units: CGScrollEventUnit.line, wheelCount: 1, wheel1: delta, wheel2: 0, wheel3: 0) else { return }
+        event.location = position
+        event.post(tap: .cghidEventTap)
     }
     
     // MARK: - Mouse Position Management
     private func updateIndividualMousePosition(device: IOHIDDevice, delta: (x: Int, y: Int)) {
         guard let currentPos = mousePositions[device] else { return }
-        
+        let sortedIds = mousePositions.keys.map { String(describing: $0) }.sorted()
+        let isPrimaryMouse = sortedIds.first.map { String(describing: device) == $0 } ?? true
+        let yDelta = isPrimaryMouse ? delta.y : -delta.y
         let newX = currentPos.x + CGFloat(delta.x)
-        let newY = currentPos.y + CGFloat(delta.y)
+        let newY = currentPos.y + CGFloat(yDelta)
         
         // Clamp to screen bounds using multi-display support
         let displayManager = DisplayManager.shared
@@ -1203,20 +1432,9 @@ class MultiMouseManager: ObservableObject {
             self.activeMouse = device
         }
         
-        // Move cursor to this mouse's position
-        if let position = mousePositions[device] {
-            CGWarpMouseCursorPosition(position)
-            CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
-            
-            // Set custom cursor for this mouse with rotation
-            let deviceString = String(describing: device)
-            if let emojiManager = (NSApplication.shared.delegate as? AppDelegate)?.emojiManager {
-                let emoji = emojiManager.getEmoji(for: deviceString)
-                setCustomCursor(for: device, emoji: emoji)
-            }
-        }
+        warpCursorToCurrentPosition()
         
-        // Clear deltas after processing
+        // Keep original default cursor; additional mice show emoji in overlay only
         mouseDeltas[device] = (0, 0)
     }
     
@@ -1241,6 +1459,7 @@ class MultiMouseManager: ObservableObject {
         let count = mouseDeltas.count
         guard count > 0 else { return }
         
+        updateFusedCursorRotation() // Keep fused emoji rotation in sync
         let currentTime = Date()
         let dt = max(1.0/240.0, currentTime.timeIntervalSince(lastUpdateTime)) // stable small timestep
         let displayManager = DisplayManager.shared
@@ -1307,10 +1526,10 @@ class MultiMouseManager: ObservableObject {
         
         // Toroidal wrap-around within the active display bounds
         if let display = displayManager.getDisplayAt(x: fusedPosition.x, y: fusedPosition.y) {
-            let minX = CGFloat(display.x)
-            let minY = CGFloat(display.y)
-            let width = CGFloat(display.width)
-            let height = CGFloat(display.height)
+            let minX = display.frame.origin.x
+            let minY = display.frame.origin.y
+            let width = display.frame.width
+            let height = display.frame.height
             func wrap(_ value: CGFloat, _ start: CGFloat, _ size: CGFloat) -> CGFloat {
                 if size <= 0 { return start }
                 let local = value - start
@@ -1326,9 +1545,8 @@ class MultiMouseManager: ObservableObject {
         // Clear deltas
         for key in mouseDeltas.keys { mouseDeltas[key] = (0, 0) }
         
-        // Apply
-        CGWarpMouseCursorPosition(fusedPosition)
-        CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+        // Real mouse always matches first virtual mouse
+        warpCursorToCurrentPosition()
         resetToDefaultCursor()
         lastUpdateTime = currentTime
     }
@@ -1345,20 +1563,8 @@ class MultiMouseManager: ObservableObject {
         print("📊 Individual Mode: Each mouse controls cursor independently")
         print("🔗 Fused Mode: All mice contribute to single cursor position")
         
-        // Update cursor based on mode
-        if useIndividualMode {
-            // Set cursor for the most recently active mouse
-            if let activeMouse = activeMouse {
-                let deviceString = String(describing: activeMouse)
-                if let emojiManager = (NSApplication.shared.delegate as? AppDelegate)?.emojiManager {
-                    let emoji = emojiManager.getEmoji(for: deviceString)
-                    setCustomCursor(for: activeMouse, emoji: emoji)
-                }
-            }
-        } else {
-            // Reset to default cursor in fused mode
-            resetToDefaultCursor()
-        }
+        // Keep default cursor in both modes
+        resetToDefaultCursor()
     }
     
     func getIndividualMousePositions() -> [String: CGPoint] {
@@ -1367,6 +1573,32 @@ class MultiMouseManager: ObservableObject {
             positions[String(describing: device)] = position
         }
         return positions
+    }
+    
+    /// Warp the system cursor: first mouse in individual mode, fused position in fused mode
+    func warpCursorToCurrentPosition() {
+        let position: CGPoint
+        if useIndividualMode,
+           let firstDevice = mousePositions.keys.min(by: { String(describing: $0) < String(describing: $1) }),
+           let pos = mousePositions[firstDevice] {
+            position = pos
+        } else {
+            position = fusedPosition
+        }
+        CGWarpMouseCursorPosition(position)
+        CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+    }
+    
+    /// Data for emoji cursor overlay: positions, rotations, and mode
+    func getOverlayData() -> (individual: [String: CGPoint], individualRotations: [String: Double], fused: CGPoint, fusedRotation: Double, useIndividual: Bool) {
+        var ind: [String: CGPoint] = [:]
+        var rots: [String: Double] = [:]
+        for (device, pos) in mousePositions {
+            let key = String(describing: device)
+            ind[key] = pos
+            rots[key] = mouseRotations[device] ?? 0.0
+        }
+        return (ind, rots, fusedPosition, cursorRotation, useIndividualMode)
     }
     
     func getActiveMouse() -> String? {
